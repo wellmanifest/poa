@@ -1,0 +1,8 @@
+# POA request DSL v1. The canonical language is the intersection of this
+# grammar and poa-process.schema.v1.json. It intentionally cannot generate
+# apply, transport, URI binding, shell, credential or authority fields.
+root ::= inspect | plan
+inspect ::= "{\"schema\":\"poa.request/v1\",\"operation\":\"inspect\",\"process_ref\":" string "}"
+plan ::= "{\"schema\":\"poa.request/v1\",\"operation\":\"plan\",\"process_ref\":" string ",\"input_ref\":" string ",\"input_sha256\":" string "}"
+string ::= "\"" chars "\""
+chars ::= ([^"\\\x00-\x1f] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))*

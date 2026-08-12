@@ -61,11 +61,11 @@ policy, plan binding, grant and intent.
 ## Blockers
 
 - None inside the recorded intent; proceed without a second confirmation.
-- New authority remains required for destructive action, secret access, new
-  external coordination, material objective expansion and trusted merge.
-- The repository has no initial Git commit because the user did not request a
-  commit. Exact-base governance checks that require a HEAD remain a publication
-  prerequisite rather than being fabricated.
+- The user's explicit push request authorized the real governance baseline
+  `67729d63949a8dfb8422435f808316065484da47`, public remote creation,
+  ticket-branch publication and pull-request creation for this bounded diff.
+- New authority remains required for destructive action, secret access,
+  material objective expansion and trusted merge.
 
 ## Acceptance evidence
 

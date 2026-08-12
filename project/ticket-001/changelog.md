@@ -11,3 +11,5 @@
 - Verified schema syntax, positive document variants and isolated Docker tests.
 - Recorded the missing initial Git baseline as a publication prerequisite;
   no commit, remote or trusted approval was inferred.
+- Recorded explicit publication authority, created the real governed baseline
+  and bound delivery to its exact SHA before ticket-branch publication.

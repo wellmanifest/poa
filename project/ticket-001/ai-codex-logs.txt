@@ -18,3 +18,13 @@ full uncommitted-tree gate: GOV-DIFF-001 ERROR: Git could not determine the chan
 scoped governance-file gate: GOV-PASS: passed (0 errors, 0 warnings)
 explicit implementation-file gate: GOV-DELIVERY-001 ERROR: ticket-001 has no bounded delivery contract bound to an actual base commit.
 decision: do not fabricate a baseline SHA and do not commit without explicit authority; retain IN_PROGRESS / VALIDATION.
+2026-08-12 publication revalidation
+python3 standard/conformance.py --all
+ok=true adversarial_rejections=13 closed_json_schema=true
+gbnf_intersection=true process_dag=true plan_hash_binding=true
+docker compose run --rm conformance
+ok=true adversarial_rejections=13
+./project/governance-check.sh --actor agent
+GOV-PASS: passed (0 errors, 0 warnings)
+git diff --check
+exit=0
