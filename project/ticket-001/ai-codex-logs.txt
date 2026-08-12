@@ -1,0 +1,20 @@
+2026-08-12 bootstrap evidence
+git init: Initialized empty Git repository on branch main.
+goal governance adopt: adopted wellmanifest/new-project 0.14.1 at revision 63a3d56b648da0d338be7cf28cbf9045adbb3e5e.
+docker engine: available, server version 29.1.3.
+ticket allocator: Successfully scaffolded project/ticket-001 for 'Define POA v1 architecture standard'.
+
+2026-08-12 contract validation
+python conformance report: {"ok":true,"schema":"poa.conformance-report/v1","adversarial_rejections":13,"closed_json_schema":true,"gbnf_intersection":true,"process_dag":true,"capability_to_uri_binding":true,"plan_hash_binding":true,"receipt_hash_binding":true,"secret_free_receipt":true}
+Draft 2020-12 meta-schema: PASS
+Format-checked positive document variants: 4/4 PASS
+docker compose build conformance: conformance Built
+docker compose run --rm conformance: {"ok":true,"schema":"poa.conformance-report/v1","adversarial_rejections":13}
+goal governance adopt --check: up-to-date wellmanifest/new-project 0.14.1 at revision 63a3d56b648da0d338be7cf28cbf9045adbb3e5e
+JSON documents: PASS
+
+2026-08-12 governance validation
+full uncommitted-tree gate: GOV-DIFF-001 ERROR: Git could not determine the changed-path set; repository has no HEAD.
+scoped governance-file gate: GOV-PASS: passed (0 errors, 0 warnings)
+explicit implementation-file gate: GOV-DELIVERY-001 ERROR: ticket-001 has no bounded delivery contract bound to an actual base commit.
+decision: do not fabricate a baseline SHA and do not commit without explicit authority; retain IN_PROGRESS / VALIDATION.

@@ -1,0 +1,36 @@
+{
+  "managedFiles": {
+    ".governance/approval-evidence.schema.json": "488dee5a4bfbf221206acc45947fce5283eb5e80614ec0ef478b5d618cc4eb83",
+    ".governance/change-evaluation.schema.json": "d16c9cbc9646ad7d98b7a5ecd56594e4572df968a0ee0c63e969b2a8c3b9490a",
+    ".governance/check_required_checks.py": "c763e14ee118af591b80f3186fa6d6f16c4f525b222935605458dc349928ba17",
+    ".governance/decision-record.schema.json": "08278322846b6da5e8306c0661c23fd1bcdf4a003f8ef75aac0d33299a4cd357",
+    ".governance/decision_record.py": "c284285339b0b61b2f68b337301580ee8b35a1687cbbe47f4c268ff5723a466c",
+    ".governance/diagnostics.json": "1640311176394612e462b595f143e32be1d52bd768f109c199d25bae9673881b",
+    ".governance/governance_check.py": "8c94129c52f9dbb8e2ece60bc916bace03b8078d750dbe0ac40218a212c73ac4",
+    ".governance/intent.schema.json": "c5cee010aabcc09dce13e12583848371a7b3eacc898b253cd9bb455d4eba6801",
+    ".governance/lock.schema.json": "fc6f1143ef713c993b61270dd2d7545a52cb0b8501aadb188e6d0152a208b207",
+    ".governance/manifest.base.json": "4b4cdbc27c833527064ba02b6235377dc50b10266f0ad1bd9ba41e43e22cb999",
+    ".governance/manifest.schema.json": "d48f258e3397ac2d8c5010e5ccdeef9eaf87b0b015d56798d11d5916c5f70a18",
+    ".governance/package-manifest.json": "7d356f590f312b4983519e21de840387e8c561f11a53e2db13f012098dd27b07",
+    ".governance/required-checks.json": "579e008e2dba9110ce45d34fdd96768fa28c003a339cf338378d28fe00fb83a2",
+    ".governance/stack-profiles.json": "6fa3f8f44e50cfd0539413a85092817d3fab4e82fe376405f1e443120724dff2",
+    ".governance/work-classification.dsl.json": "3a947c41938c0b8ef1717957f313ff9248764252735182de30b1f2d6878748b6",
+    ".governance/work-classification.schema.json": "f5c2b518238543589e4f8d3805cc6455e19d6919643644aaeae034abf472a467",
+    "AGENTS.md": "801ee03fab6e30026da134107fb935176be07edaafd0d5785af6d3d40c3aaf53",
+    "project.bat": "d699ec9930b8895b03e75446561ec0561f4a46e067ef19ba968231db6185ffb2",
+    "project.sh": "90f82d9f0feea9bde34dca3e1c657604a65f3bfc938709e3cf69682f07dd1bc1",
+    "project/governance-check.bat": "2f0091eba580c0a24b5d1a127fb82963521a4b8512ff9d3b85e679b66b5e361c",
+    "project/governance-check.sh": "158ca61531b8e51ba484de8eb6f91f4e4fbba908ae3c8db678b63bf6bab49923",
+    "project/new-ticket.sh": "d744a80b6de476f7715ca219b68ff277d4110c81dbc9f55439c7cee9dd29ffa9",
+    "project/readme.sh": "b41a9c88374e6de0439284a4561fb11b1b482039bc5ba1bcf6683fd59b1a3968",
+    "scripts/runtime.sh": "8d5c91808d3c126fc84018a12f0b39dd49194fb8b01c5e024932ff9cf2a7a7e2"
+  },
+  "schema": "new-project.lock/v1",
+  "standard": {
+    "id": "wellmanifest/new-project",
+    "publicationStatus": "published",
+    "sourceRepository": "wellmanifest/new-project",
+    "sourceRevision": "63a3d56b648da0d338be7cf28cbf9045adbb3e5e",
+    "version": "0.14.1"
+  }
+}
