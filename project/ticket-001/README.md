@@ -31,10 +31,15 @@ release creation.
 - [x] AC-05: Architecture and logic-flow documents contain Mermaid diagrams and implementation guidance.
 - [x] AC-06: Docker validation passes without network access or runtime secrets.
 - [x] AC-07: Lessons from the scoped MCP/CLI implementation are generalized without granting authority to DSL or URI resolution.
+- [x] AC-08: Binding, observation, execution-envelope and event documents are
+  closed and machine-validatable, with lease and terminal-state semantics.
+- [x] AC-09: Effect sets represent simultaneous credential, quota, session and
+  filesystem impact; canonical hashes declare RFC 8785 plus SHA-256.
 
 ## Validation status
 
-- Local contract and Docker conformance: passed.
+- Local and network-isolated Docker contract conformance: passed with 18
+  adversarial rejections; governance passed with 0 errors and 0 warnings.
 - Scoped governance structure check: passed.
 - Initial Git baseline created as `67729d63949a8dfb8422435f808316065484da47`;
   bounded delivery is bound to that exact SHA. Host and networkless Docker

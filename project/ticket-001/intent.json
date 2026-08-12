@@ -23,7 +23,7 @@
   "delivery": {
     "acceptedBaseSha": "67729d63949a8dfb8422435f808316065484da47",
     "targetBranch": "main",
-    "outcome": "A reusable POA v1 standard with closed process, request, plan and receipt contracts plus deterministic conformance",
+    "outcome": "A reusable POA v1 standard with closed authoring, binding, observation, planning, execution, event and receipt contracts plus deterministic conformance",
     "nonGoals": [
       "Do not implement a runtime or generic remote executor",
       "Do not grant authority to an LLM, DSL document, URI resolver or transport",
@@ -61,7 +61,9 @@
       "responsibilityChanges": false,
       "interfaceChanges": [],
       "dataChanges": [
-        "Introduce the experimental wellmanifest.poa/v1 document family"
+        "Introduce the experimental wellmanifest.poa/v1 document family",
+        "Represent simultaneous effects as a bounded set rather than one lossy class",
+        "Bind canonical plan and receipt hashes to RFC 8785 plus SHA-256"
       ],
       "ui": {
         "impact": "none",

@@ -31,6 +31,9 @@ policy, plan binding, grant and intent.
    adversarial fixtures, then validate it in the isolated Docker service.
 6. Review schema/grammar drift, unsafe data channels, secret exposure and
    governance evidence; record results in this ticket.
+7. Close the runtime contract gaps found while applying POA to the LLM project
+   workbench: typed bindings, observations, execution envelopes, events,
+   multi-dimensional effects, leases and terminal outcomes.
 
 ## Actual changes
 
@@ -47,6 +50,13 @@ policy, plan binding, grant and intent.
   hashing, capability binding, DAG validation and 13 adversarial rejections.
 - Added Mermaid architecture/sequence diagrams, implementation examples,
   failure semantics, maturity levels and an adoption checklist.
+- Replaced the lossy single `effect_class` with a bounded effect set so an LLM
+  request can declare read, credential, quota, remote-session and local-write
+  impact at the same time.
+- Added closed binding, observation, execution-envelope and event variants,
+  including lease renewal and cancelled/timed-out/denied/expired outcomes.
+- Bound plan and receipt hashing to `RFC8785+SHA-256` and gave grammar
+  references their own `grammar://` type.
 
 ## Risks and controls
 
@@ -70,7 +80,7 @@ policy, plan binding, grant and intent.
 ## Acceptance evidence
 
 - AC-01/05/07: `docs/ARCHITECTURE.md` and `docs/LOGIC_FLOW.md`.
-- AC-02: Draft 2020-12 meta-schema and four positive variants passed.
+- AC-02/08/09: Draft 2020-12 schema and all typed positive variants passed.
 - AC-03: grammar integrity and canonical intersection passed.
-- AC-04: conformance report returned `ok: true` and 13 adversarial rejections.
+- AC-04: conformance report returned `ok: true` and 18 adversarial rejections.
 - AC-06: isolated `docker compose run --rm conformance` returned `ok: true`.

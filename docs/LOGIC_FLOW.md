@@ -55,7 +55,7 @@ The authored definition names capabilities, not transports:
       "id": "inventory",
       "capability_ref": "capability://example.test/repository/inventory/v1",
       "kind": "query",
-      "effect_class": "read_only",
+      "effects": ["read_data"],
       "depends_on": [],
       "requires_approval": false,
       "timeout_seconds": 30,
@@ -70,7 +70,13 @@ The authored definition names capabilities, not transports:
       "id": "review",
       "capability_ref": "capability://example.test/llm/project-review/v1",
       "kind": "command",
-      "effect_class": "local_write",
+      "effects": [
+        "read_data",
+        "local_write",
+        "credential_use",
+        "quota_consumption",
+        "remote_session"
+      ],
       "depends_on": ["inventory"],
       "requires_approval": true,
       "timeout_seconds": 300,
@@ -132,7 +138,13 @@ A compiled step contains exact execution identity but not executable strings:
   "process_uri": "llmcli://account/project/command/review",
   "target_ref": "target://example.test/workspace/release",
   "kind": "command",
-  "effect_class": "local_write",
+  "effects": [
+    "read_data",
+    "local_write",
+    "credential_use",
+    "quota_consumption",
+    "remote_session"
+  ],
   "depends_on": ["inventory"],
   "input_ref": "artifact://example.test/inputs/release/r1",
   "input_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
@@ -148,27 +160,34 @@ A compiled step contains exact execution identity but not executable strings:
 
 The full plan also contains:
 
-- request, schema, grammar and canonical AST hashes;
+- request, schema, grammar and canonical AST hashes using
+  `RFC8785+SHA-256`;
 - `valid_until`;
 - required subject/scopes and grant TTL;
 - `intent_required: true` and `plan_hash_binding: true`;
 - `host_shell: false`, `arbitrary_executable: false` and
   `transport_from_registry: true`.
 
-`plan_hash` is SHA-256 over canonical plan content before the `plan_hash` field
-is added.
+`plan_hash` is SHA-256 over RFC 8785 canonical plan content before the
+`plan_hash` field is added. The plan declares
+`"hash_profile":"RFC8785+SHA-256"`.
 
 ## 6. Authorize outside the DSL
 
-The control plane—not the author—creates an execution envelope:
+The control plane—not the author—creates a typed execution envelope:
 
 ```json
 {
+  "schema": "poa.execution-envelope/v1",
   "execution_id": "run:example:001",
   "request_ref": "sha256:<canonical-request-hash>",
   "plan_ref": "sha256:<exact-plan-hash>",
   "grant_ref": "grant:example:001",
-  "intent_ref": "intent:example:001"
+  "intent_ref": "intent:example:001",
+  "subject": "mcp:subactor",
+  "lease_expires_at": "2030-01-01T00:10:00Z",
+  "lease_revision": 1,
+  "idempotency_key": "run:example:001"
 }
 ```
 
@@ -176,6 +195,11 @@ Before any side effect, the executor reloads the original immutable request,
 rebuilds the plan from the current versioned contracts, compares the exact
 hash, checks expiry, subject/resource/scope, verifies that the intent is
 runnable and atomically marks the execution id as consumed.
+
+Long-running work renews its lease by appending a `lease_renewed` event with a
+new monotonic revision. Renewal never rewrites the plan. Cancellation, timeout,
+denial and expiry append their own terminal events and end in a terminal
+receipt even when no adapter was dispatched.
 
 ## 7. Execute through a typed adapter
 
@@ -192,6 +216,11 @@ The adapter creates argv from its own allowlist. It does not append author text
 to argv and does not invoke a shell. A provider credential is resolved inside
 the account boundary and never appears in the request, plan, URI, event or
 receipt.
+
+Streaming text is telemetry, not the terminal domain result. A stream may carry
+bounded deltas for operator visibility, while the final typed result is stored
+as an immutable artifact, validated against `output_schema_ref`, hashed and
+referenced by the event/receipt path.
 
 ## 8. Verify effects, then issue a receipt
 
@@ -218,6 +247,7 @@ receipt.
   }],
   "raw_output_included": false,
   "secret_material_included": false,
+  "hash_profile": "RFC8785+SHA-256",
   "receipt_hash": "<canonical-receipt-hash>"
 }
 ```
@@ -308,6 +338,7 @@ At minimum, each POA implementation tests:
 | bindings | one exact compatible route | no route, ambiguous route, stale fact |
 | boundary | allowlisted adapter and target | raw argv, shell, traversal, foreign target |
 | authority | exact live grant and intent | expired, wrong subject/scope/hash, replay |
+| lease/events | monotonic renewal and terminal receipt | stale lease, duplicate sequence, disconnect-as-cancel |
 | receipts | hashes, sizes, evidence refs | raw output or secret material included |
 | MCP HTTP | authenticated valid Origin | foreign Origin/Host and undeclared tool field |
 | end-to-end | plan leaves projections unchanged | read-only mode denies authorize/apply |

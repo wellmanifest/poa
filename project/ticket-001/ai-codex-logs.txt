@@ -28,3 +28,15 @@ ok=true adversarial_rejections=13
 GOV-PASS: passed (0 errors, 0 warnings)
 git diff --check
 exit=0
+
+2026-08-12 runtime-contract update validation
+python3 Draft202012Validator.check_schema
+standard/poa-process.schema.v1.json metaschema: PASS
+python3 standard/conformance.py --all
+ok=true adversarial_rejections=18 typed_binding_contract=true
+fresh_observation_contract=true execution_envelope_binding=true
+lease_and_terminal_events=true rfc8785_sha256_profile=true
+./project/governance-check.sh --actor agent
+GOV-PASS: passed (0 errors, 0 warnings)
+docker compose run --rm --build conformance
+ok=true adversarial_rejections=18

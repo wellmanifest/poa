@@ -16,7 +16,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 SCHEMA_PATH = ROOT / "poa-process.schema.v1.json"
 GRAMMAR_PATH = ROOT / "poa-process.v1.gbnf"
-SCHEMA_DIGEST = "bb5b67165faa899c19e3f21dd942dfe7e6b0c6a274aafbd3d8ff0266880ec47f"
+SCHEMA_DIGEST = "77eb7ad30d304a947524b3f3fdca8dfc345e9c6fbb9651e2346fc08ffe145468"
 GRAMMAR_DIGEST = "d13d736cc3f4e07dd9366378183055ff0d9ad10dd4fc5bf1f322e2dc37d919ee"
 JSON_STRING = r'"(?:[^"\\\x00-\x1f]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"'
 CANONICAL_REQUESTS = {
@@ -42,6 +42,7 @@ class ContractError(ValueError):
 
 
 def canonical(value: Any) -> str:
+    """Serialize the POA numeric/string subset using the RFC 8785 profile."""
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
@@ -95,6 +96,8 @@ class Contracts:
                 "policyRef",
                 "artifactRef",
                 "schemaRef",
+                "grammarRef",
+                "adapterRef",
                 "targetRef",
                 "processUri",
             )
@@ -127,7 +130,11 @@ class Contracts:
             "#/$defs/process",
             "#/$defs/requestInspect",
             "#/$defs/requestPlan",
+            "#/$defs/binding",
+            "#/$defs/observation",
             "#/$defs/plan",
+            "#/$defs/executionEnvelope",
+            "#/$defs/event",
             "#/$defs/receipt",
         }
         if variants != expected:
@@ -185,6 +192,218 @@ def validate_request(contracts: Contracts, value: Any) -> dict[str, Any]:
     if request_canonical(json.loads(encoded)) != encoded:
         raise ContractError("canonical request round-trip failed")
     return copy.deepcopy(value)
+
+
+def example_observation() -> dict[str, Any]:
+    return {
+        "schema": "poa.observation/v1",
+        "observation_id": "observation:example:001",
+        "target_ref": "target://example.test/workspace/release",
+        "observed_at": "2030-01-01T00:00:00Z",
+        "valid_until": "2030-01-01T00:05:00Z",
+        "fact_schema_ref": "schema://example.test/target/facts/v1",
+        "facts_ref": "artifact://example.test/observations/release/r1",
+        "facts_sha256": "2" * 64,
+        "read_only": True,
+    }
+
+
+def validate_observation(contracts: Contracts, value: Any) -> None:
+    exact_fields(
+        value,
+        {
+            "schema",
+            "observation_id",
+            "target_ref",
+            "observed_at",
+            "valid_until",
+            "fact_schema_ref",
+            "facts_ref",
+            "facts_sha256",
+            "read_only",
+        },
+    )
+    if value["schema"] != "poa.observation/v1" or value["read_only"] is not True:
+        raise ContractError("observation contract is not read-only")
+    contracts.ref("identifier", value["observation_id"])
+    contracts.ref("targetRef", value["target_ref"])
+    contracts.ref("schemaRef", value["fact_schema_ref"])
+    contracts.ref("artifactRef", value["facts_ref"])
+    contracts.ref("sha256", value["facts_sha256"])
+    observed = require_datetime(value["observed_at"], "observation time")
+    valid_until = require_datetime(value["valid_until"], "observation validity")
+    if valid_until <= observed:
+        raise ContractError("observation validity is not forward-bounded")
+
+
+def example_binding(observation: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": "poa.binding/v1",
+        "binding_id": "binding:example:review:001",
+        "capability_ref": "capability://example.test/llm/project-review/v1",
+        "process_uri": "llmcli://account/project/command/review",
+        "target_ref": observation["target_ref"],
+        "adapter_ref": "adapter://example.test/llm/account-container-cli/v1",
+        "observation_ref": observation["facts_ref"],
+        "observation_sha256": observation["facts_sha256"],
+        "priority": 100,
+    }
+
+
+def validate_binding(contracts: Contracts, value: Any) -> None:
+    exact_fields(
+        value,
+        {
+            "schema",
+            "binding_id",
+            "capability_ref",
+            "process_uri",
+            "target_ref",
+            "adapter_ref",
+            "observation_ref",
+            "observation_sha256",
+            "priority",
+        },
+    )
+    if value["schema"] != "poa.binding/v1":
+        raise ContractError("binding schema is not supported")
+    contracts.ref("identifier", value["binding_id"])
+    contracts.ref("capabilityRef", value["capability_ref"])
+    contracts.ref("processUri", value["process_uri"])
+    contracts.ref("targetRef", value["target_ref"])
+    contracts.ref("adapterRef", value["adapter_ref"])
+    contracts.ref("artifactRef", value["observation_ref"])
+    contracts.ref("sha256", value["observation_sha256"])
+    if not isinstance(value["priority"], int) or not -1000 <= value["priority"] <= 1000:
+        raise ContractError("binding priority is invalid")
+
+
+def example_execution_envelope(plan: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": "poa.execution-envelope/v1",
+        "execution_id": "run:example:001",
+        "request_ref": f"sha256:{plan['request_sha256']}",
+        "plan_ref": f"sha256:{plan['plan_hash']}",
+        "grant_ref": "grant:example:001",
+        "intent_ref": "intent:example:001",
+        "subject": "mcp:subactor",
+        "lease_expires_at": "2030-01-01T00:10:00Z",
+        "lease_revision": 1,
+        "idempotency_key": "run:example:001",
+    }
+
+
+def validate_execution_envelope(contracts: Contracts, value: Any) -> None:
+    exact_fields(
+        value,
+        {
+            "schema",
+            "execution_id",
+            "request_ref",
+            "plan_ref",
+            "grant_ref",
+            "intent_ref",
+            "subject",
+            "lease_expires_at",
+            "lease_revision",
+            "idempotency_key",
+        },
+    )
+    if value["schema"] != "poa.execution-envelope/v1":
+        raise ContractError("execution envelope schema is not supported")
+    contracts.ref("identifier", value["execution_id"])
+    contracts.ref("sha256Ref", value["request_ref"])
+    contracts.ref("sha256Ref", value["plan_ref"])
+    if not isinstance(value["grant_ref"], str) or re.fullmatch(
+        r"grant:[a-zA-Z0-9._:-]+", value["grant_ref"]
+    ) is None:
+        raise ContractError("execution grant reference is invalid")
+    if not isinstance(value["intent_ref"], str) or re.fullmatch(
+        r"intent:[a-zA-Z0-9._:-]+", value["intent_ref"]
+    ) is None:
+        raise ContractError("execution intent reference is invalid")
+    if not isinstance(value["subject"], str) or re.fullmatch(
+        r"(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+", value["subject"]
+    ) is None:
+        raise ContractError("execution subject is invalid")
+    require_datetime(value["lease_expires_at"], "execution lease")
+    if not isinstance(value["lease_revision"], int) or not 1 <= value["lease_revision"] <= 2_147_483_647:
+        raise ContractError("execution lease revision is invalid")
+    if not isinstance(value["idempotency_key"], str) or re.fullmatch(
+        r"[A-Za-z0-9._:-]{8,160}", value["idempotency_key"]
+    ) is None:
+        raise ContractError("execution idempotency key is invalid")
+
+
+def example_event(plan: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": "poa.event/v1",
+        "event_id": "event:example:001",
+        "run_id": "run:example:001",
+        "sequence": 1,
+        "process_ref": plan["process_ref"],
+        "plan_ref": f"sha256:{plan['plan_hash']}",
+        "event_type": "lease_renewed",
+        "occurred_at": "2030-01-01T00:00:30Z",
+        "artifact_refs": [],
+        "raw_output_included": False,
+        "secret_material_included": False,
+    }
+
+
+def validate_event(contracts: Contracts, value: Any) -> None:
+    exact_fields(
+        value,
+        {
+            "schema",
+            "event_id",
+            "run_id",
+            "sequence",
+            "process_ref",
+            "plan_ref",
+            "event_type",
+            "occurred_at",
+            "artifact_refs",
+            "raw_output_included",
+            "secret_material_included",
+        },
+        {"step_id"},
+    )
+    if value["schema"] != "poa.event/v1":
+        raise ContractError("event schema is not supported")
+    for field in ("event_id", "run_id"):
+        contracts.ref("identifier", value[field])
+    contracts.ref("processRef", value["process_ref"])
+    contracts.ref("sha256Ref", value["plan_ref"])
+    if "step_id" in value:
+        contracts.ref("identifier", value["step_id"])
+    event_types = {
+        "requested",
+        "planned",
+        "authorized",
+        "started",
+        "lease_renewed",
+        "completed",
+        "verified",
+        "failed",
+        "compensated",
+        "cancelled",
+        "timed_out",
+        "denied",
+        "expired",
+    }
+    if value["event_type"] not in event_types:
+        raise ContractError("event type is invalid")
+    if not isinstance(value["sequence"], int) or not 1 <= value["sequence"] <= 2_147_483_647:
+        raise ContractError("event sequence is invalid")
+    require_datetime(value["occurred_at"], "event time")
+    refs = value["artifact_refs"]
+    if not isinstance(refs, list) or len(refs) > 16 or len(refs) != len(set(refs)):
+        raise ContractError("event artifacts are invalid")
+    for reference in refs:
+        contracts.ref("artifactRef", reference)
+    if value["raw_output_included"] is not False or value["secret_material_included"] is not False:
+        raise ContractError("event contains a forbidden data class")
 
 
 def validate_verification(contracts: Contracts, value: Any) -> None:
@@ -262,7 +481,7 @@ def validate_process_step(contracts: Contracts, value: Any) -> None:
         "id",
         "capability_ref",
         "kind",
-        "effect_class",
+        "effects",
         "depends_on",
         "requires_approval",
         "timeout_seconds",
@@ -276,18 +495,38 @@ def validate_process_step(contracts: Contracts, value: Any) -> None:
     if "compensation_capability_ref" in value:
         contracts.ref("capabilityRef", value["compensation_capability_ref"])
     kind = value["kind"]
-    effect = value["effect_class"]
+    effects = value["effects"]
     if kind not in {"query", "command"}:
         raise ContractError("step kind is invalid")
-    if effect not in {"read_only", "local_write", "external_write", "credential_use", "destructive"}:
-        raise ContractError("step effect class is invalid")
+    allowed_effects = {
+        "read_data",
+        "local_write",
+        "external_write",
+        "credential_use",
+        "quota_consumption",
+        "remote_session",
+        "destructive",
+    }
+    if (
+        not isinstance(effects, list)
+        or not 1 <= len(effects) <= len(allowed_effects)
+        or len(effects) != len(set(effects))
+        or any(effect not in allowed_effects for effect in effects)
+    ):
+        raise ContractError("step effects are invalid")
     if kind == "query" and (
-        effect != "read_only"
-        or value["requires_approval"] is not False
+        set(effects) & {"local_write", "external_write", "destructive"}
         or value["idempotency"] != "read_only"
     ):
         raise ContractError("query step declares a mutating behavior")
-    if effect in {"external_write", "credential_use", "destructive"} and value["requires_approval"] is not True:
+    approval_effects = {
+        "external_write",
+        "credential_use",
+        "quota_consumption",
+        "remote_session",
+        "destructive",
+    }
+    if set(effects) & approval_effects and value["requires_approval"] is not True:
         raise ContractError("high-impact step lacks explicit approval")
     if not isinstance(value["depends_on"], list) or len(value["depends_on"]) != len(set(value["depends_on"])):
         raise ContractError("step dependencies are invalid")
@@ -324,7 +563,7 @@ def example_process() -> dict[str, Any]:
                 "id": "inventory",
                 "capability_ref": "capability://example.test/repository/inventory/v1",
                 "kind": "query",
-                "effect_class": "read_only",
+                "effects": ["read_data"],
                 "depends_on": [],
                 "requires_approval": False,
                 "timeout_seconds": 30,
@@ -336,7 +575,13 @@ def example_process() -> dict[str, Any]:
                 "id": "review",
                 "capability_ref": "capability://example.test/llm/project-review/v1",
                 "kind": "command",
-                "effect_class": "local_write",
+                "effects": [
+                    "read_data",
+                    "local_write",
+                    "credential_use",
+                    "quota_consumption",
+                    "remote_session",
+                ],
                 "depends_on": ["inventory"],
                 "requires_approval": True,
                 "timeout_seconds": 300,
@@ -348,7 +593,7 @@ def example_process() -> dict[str, Any]:
                 "id": "verify",
                 "capability_ref": "capability://example.test/repository/fingerprint/v1",
                 "kind": "query",
-                "effect_class": "read_only",
+                "effects": ["read_data"],
                 "depends_on": ["review"],
                 "requires_approval": False,
                 "timeout_seconds": 30,
@@ -411,7 +656,7 @@ def compile_example_plan(
                 "process_uri": binding["process_uri"],
                 "target_ref": binding["target_ref"],
                 "kind": step["kind"],
-                "effect_class": step["effect_class"],
+                "effects": list(step["effects"]),
                 "depends_on": list(step["depends_on"]),
                 "input_ref": request["input_ref"],
                 "input_sha256": request["input_sha256"],
@@ -431,10 +676,12 @@ def compile_example_plan(
         "steps": steps,
         "dsl_contract": {
             "schema_ref": "schema://wellmanifest.dev/poa/process/v1",
-            "grammar_ref": "schema://wellmanifest.dev/poa/grammar/v1",
+            "grammar_ref": "grammar://wellmanifest.dev/poa/request/v1",
             "schema_sha256": SCHEMA_DIGEST,
             "grammar_sha256": GRAMMAR_DIGEST,
             "canonical_sha256": request_hash,
+            "canonicalization": "RFC8785",
+            "hash_algorithm": "SHA-256",
             "validated": True,
             "additional_properties": False,
         },
@@ -451,6 +698,7 @@ def compile_example_plan(
             "arbitrary_executable": False,
             "transport_from_registry": True,
         },
+        "hash_profile": "RFC8785+SHA-256",
     }
     return {**body, "plan_hash": digest_text(canonical(body))}
 
@@ -466,6 +714,7 @@ def validate_plan(contracts: Contracts, value: Any) -> None:
         "dsl_contract",
         "authority_requirements",
         "execution_boundary",
+        "hash_profile",
         "plan_hash",
     }
     exact_fields(value, fields)
@@ -488,22 +737,28 @@ def validate_plan(contracts: Contracts, value: Any) -> None:
             "schema_sha256",
             "grammar_sha256",
             "canonical_sha256",
+            "canonicalization",
+            "hash_algorithm",
             "validated",
             "additional_properties",
         },
     )
     contracts.ref("schemaRef", dsl["schema_ref"])
-    contracts.ref("schemaRef", dsl["grammar_ref"])
+    contracts.ref("grammarRef", dsl["grammar_ref"])
     for field in ("schema_sha256", "grammar_sha256", "canonical_sha256"):
         contracts.ref("sha256", dsl[field])
     if (
         dsl["schema_sha256"] != SCHEMA_DIGEST
         or dsl["grammar_sha256"] != GRAMMAR_DIGEST
         or dsl["canonical_sha256"] != value["request_sha256"]
+        or dsl["canonicalization"] != "RFC8785"
+        or dsl["hash_algorithm"] != "SHA-256"
         or dsl["validated"] is not True
         or dsl["additional_properties"] is not False
     ):
         raise ContractError("plan DSL receipt does not bind the validated request")
+    if value["hash_profile"] != "RFC8785+SHA-256":
+        raise ContractError("plan hash profile is not supported")
     authority = value["authority_requirements"]
     exact_fields(
         authority,
@@ -551,7 +806,7 @@ def validate_plan(contracts: Contracts, value: Any) -> None:
                 "process_uri",
                 "target_ref",
                 "kind",
-                "effect_class",
+                "effects",
                 "depends_on",
                 "input_ref",
                 "input_sha256",
@@ -571,7 +826,28 @@ def validate_plan(contracts: Contracts, value: Any) -> None:
         contracts.ref("sha256", step["input_sha256"])
         if step["kind"] not in {"query", "command"} or f"/{step['kind']}/" not in process_uri:
             raise ContractError("planned step URI and kind disagree")
-        if step["kind"] == "query" and step["effect_class"] != "read_only":
+        effects = step["effects"]
+        allowed_effects = {
+            "read_data",
+            "local_write",
+            "external_write",
+            "credential_use",
+            "quota_consumption",
+            "remote_session",
+            "destructive",
+        }
+        if (
+            not isinstance(effects, list)
+            or not 1 <= len(effects) <= len(allowed_effects)
+            or len(effects) != len(set(effects))
+            or any(effect not in allowed_effects for effect in effects)
+        ):
+            raise ContractError("planned effects are invalid")
+        if step["kind"] == "query" and set(step["effects"]) & {
+            "local_write",
+            "external_write",
+            "destructive",
+        }:
             raise ContractError("planned query declares a mutating effect")
         dependencies = step["depends_on"]
         if not isinstance(dependencies, list) or len(dependencies) != len(set(dependencies)):
@@ -641,6 +917,7 @@ def example_receipt(plan: dict[str, Any]) -> dict[str, Any]:
         "steps": steps,
         "raw_output_included": False,
         "secret_material_included": False,
+        "hash_profile": "RFC8785+SHA-256",
     }
     return {**body, "receipt_hash": digest_text(canonical(body))}
 
@@ -659,6 +936,7 @@ def validate_receipt(contracts: Contracts, value: Any) -> None:
         "steps",
         "raw_output_included",
         "secret_material_included",
+        "hash_profile",
         "receipt_hash",
     }
     exact_fields(value, fields)
@@ -680,8 +958,18 @@ def validate_receipt(contracts: Contracts, value: Any) -> None:
     completed = require_datetime(value["completed_at"], "receipt completion")
     if completed < started:
         raise ContractError("receipt completion precedes start")
-    if value["state"] not in {"succeeded", "failed", "compensated"}:
+    if value["state"] not in {
+        "succeeded",
+        "failed",
+        "compensated",
+        "cancelled",
+        "timed_out",
+        "denied",
+        "expired",
+    }:
         raise ContractError("receipt state is invalid")
+    if value["hash_profile"] != "RFC8785+SHA-256":
+        raise ContractError("receipt hash profile is not supported")
     if value["raw_output_included"] is not False or value["secret_material_included"] is not False:
         raise ContractError("receipt contains a forbidden data class")
     body = {key: value[key] for key in value if key != "receipt_hash"}
@@ -705,7 +993,16 @@ def validate_receipt(contracts: Contracts, value: Any) -> None:
         contracts.ref("processUri", step["process_uri"])
         contracts.ref("sha256", step["output_sha256"])
         contracts.ref("identifier", step["step_id"])
-        if step["state"] not in {"succeeded", "failed", "compensated", "skipped"}:
+        if step["state"] not in {
+            "succeeded",
+            "failed",
+            "compensated",
+            "skipped",
+            "cancelled",
+            "timed_out",
+            "denied",
+            "expired",
+        }:
             raise ContractError("step receipt state is invalid")
         if not isinstance(step["attempts"], int) or not 0 <= step["attempts"] <= 5:
             raise ContractError("step receipt attempt count is invalid")
@@ -769,13 +1066,29 @@ def adversarial_checks(contracts: Contracts) -> int:
     bound_definition = copy.deepcopy(process)
     bound_definition["steps"][0]["process_uri"] = "repo://workspace/release/query/inventory"
     mutating_query = copy.deepcopy(process)
-    mutating_query["steps"][0]["effect_class"] = "external_write"
+    mutating_query["steps"][0]["effects"] = ["read_data", "external_write"]
+    unapproved_remote = copy.deepcopy(process)
+    unapproved_remote["steps"][1]["requires_approval"] = False
+    observation = example_observation()
+    stale_observation = copy.deepcopy(observation)
+    stale_observation["valid_until"] = stale_observation["observed_at"]
+    binding = example_binding(observation)
+    injected_binding = {**binding, "transport": "shell"}
+    envelope = example_execution_envelope(plan)
+    injected_envelope = {**envelope, "shell": "sh -c id"}
+    event = example_event(plan)
+    unsafe_event = {**event, "raw_output_included": True}
     cases.extend(
         [
             lambda: validate_process(contracts, unknown),
             lambda: validate_process(contracts, cycle),
             lambda: validate_process(contracts, bound_definition),
             lambda: validate_process(contracts, mutating_query),
+            lambda: validate_process(contracts, unapproved_remote),
+            lambda: validate_observation(contracts, stale_observation),
+            lambda: validate_binding(contracts, injected_binding),
+            lambda: validate_execution_envelope(contracts, injected_envelope),
+            lambda: validate_event(contracts, unsafe_event),
         ]
     )
     for case in cases:
@@ -798,6 +1111,14 @@ def run_all() -> dict[str, Any]:
     )
     plan = compile_example_plan(contracts, process, request)
     validate_plan(contracts, plan)
+    observation = example_observation()
+    validate_observation(contracts, observation)
+    binding = example_binding(observation)
+    validate_binding(contracts, binding)
+    envelope = example_execution_envelope(plan)
+    validate_execution_envelope(contracts, envelope)
+    event = example_event(plan)
+    validate_event(contracts, event)
     receipt = example_receipt(plan)
     validate_receipt(contracts, receipt)
     rejected = adversarial_checks(contracts)
@@ -810,7 +1131,12 @@ def run_all() -> dict[str, Any]:
             "gbnf_intersection": True,
             "process_dag": True,
             "capability_to_uri_binding": True,
+            "typed_binding_contract": True,
+            "fresh_observation_contract": True,
             "plan_hash_binding": True,
+            "execution_envelope_binding": True,
+            "lease_and_terminal_events": True,
+            "rfc8785_sha256_profile": True,
             "receipt_hash_binding": True,
             "secret_free_receipt": True,
             "adversarial_rejections": rejected,
@@ -820,6 +1146,10 @@ def run_all() -> dict[str, Any]:
             "request_operation": request["operation"],
             "inspect_operation": inspect["operation"],
             "plan_ref": f"sha256:{plan['plan_hash']}",
+            "binding_id": binding["binding_id"],
+            "observation_id": observation["observation_id"],
+            "execution_id": envelope["execution_id"],
+            "event_type": event["event_type"],
             "receipt_hash": receipt["receipt_hash"],
         },
     }

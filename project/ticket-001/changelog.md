@@ -13,3 +13,7 @@
   no commit, remote or trusted approval was inferred.
 - Recorded explicit publication authority, created the real governed baseline
   and bound delivery to its exact SHA before ticket-branch publication.
+- Added typed binding, observation, execution-envelope and event documents.
+- Replaced scalar effect classification with bounded multi-dimensional effects.
+- Declared RFC 8785 plus SHA-256 hashing, a dedicated grammar reference type,
+  lease renewal and complete terminal outcomes.

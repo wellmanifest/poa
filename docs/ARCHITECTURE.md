@@ -91,9 +91,12 @@ There is intentionally no LLM-generated `apply` operation.
 `POA-COMPILER-001` — Validation MUST produce a typed AST, not pass the original
 dictionary or JSON object directly to an adapter.
 
-`POA-COMPILER-002` — The compiler MUST serialize the AST canonically and record
-the SHA-256 digests of the AST, schema and grammar. Validation errors MUST name
-the failed rule or path without reflecting the rejected value.
+`POA-COMPILER-002` — The compiler MUST serialize the AST with RFC 8785 and
+record SHA-256 digests of the AST, schema and grammar. The hash profile is
+`RFC8785+SHA-256`; implementations MUST NOT substitute a runtime-specific
+`sort_keys` format without proving byte equivalence for the accepted numeric
+and Unicode domain. Validation errors MUST name the failed rule or path without
+reflecting the rejected value.
 
 `POA-COMPILER-003` — Defaults MUST NOT hide missing authority, target,
 management plane, effect class or verification. Ambiguous highest-priority
@@ -119,6 +122,11 @@ transport and does not grant authority. The binding owns the adapter and target.
 `POA-REGISTRY-004` — Wildcards MAY appear in policy scopes. Every compiled DAG
 node MUST use an exact URI and exact target reference.
 
+`POA-REGISTRY-005` — A selected binding MUST be emitted as a closed
+`poa.binding/v1` document. It binds capability, exact URI, target and adapter to
+the immutable observation used during selection. A mutable registry row or an
+untyped lookup result is not sufficient planning evidence.
+
 ### 3.4 Observation and Digital Twin
 
 `POA-OBSERVE-001` — Observation MUST be read-only and freshness-bounded. A
@@ -129,11 +137,19 @@ mutation authority.
 be explicit. Unknown facts MUST remain unknown rather than falling back to a
 convenient connector.
 
+`POA-OBSERVE-003` — Each planning observation MUST be represented by a closed
+`poa.observation/v1` document with observation time, validity deadline, target,
+fact schema, immutable fact artifact and digest. `valid_until` MUST be later
+than `observed_at`; expired facts cannot authorize a new plan.
+
 ### 3.5 Plan and authority
 
 `POA-PLAN-001` — Planning MUST not execute a mutating adapter. A plan contains
-exact URIs, target references, input hashes, effects, dependency order,
+exact URIs, target references, input hashes, effect sets, dependency order,
 timeouts, retry budgets, idempotency keys, verification and execution boundary.
+Effects are multi-dimensional: a model query can simultaneously declare
+`read_data`, `credential_use`, `quota_consumption` and `remote_session`, while a
+project-aware tool may additionally declare `local_write`.
 
 `POA-PLAN-002` — Plans MUST be canonically hashed, short-lived and free of raw
 prompts, credentials and full tool output. A later executor MUST recompute and
@@ -143,9 +159,11 @@ compare the exact plan hash before dispatch.
 by a short-lived grant plus a runnable intent. Both MUST bind subject, resource,
 scope and the exact `plan_ref`.
 
-`POA-AUTH-002` — Higher-impact steps (`external_write`, `credential_use`,
-`destructive`) MUST declare approval. Approval metadata in the process is a
-requirement, not proof that approval was supplied.
+`POA-AUTH-002` — Steps with `external_write`, `credential_use`,
+`quota_consumption`, `remote_session` or `destructive` effects MUST declare
+approval. Approval metadata in the process is a requirement, not proof that
+approval was supplied. A standing policy may satisfy routine provider access,
+but the exact grant still binds the plan.
 
 `POA-AUTH-003` — Grants MUST expire and SHOULD be single-use. Completion SHOULD
 complete the intent and revoke or consume the grant even when cleanup reports a
@@ -172,14 +190,22 @@ executables default to false.
 MUST be a separately declared capability/URI Process; it is never inferred from
 a step name.
 
+`POA-EXEC-006` — Dispatch MUST accept only a closed
+`poa.execution-envelope/v1` created by the trusted authority boundary. It binds
+the immutable request and plan, grant, intent, subject, idempotency key and a
+monotonic lease revision. Lease renewal creates a new event; it does not mutate
+or extend the original plan or grant beyond their validity.
+
 ### 3.7 Verification and receipt
 
 `POA-VERIFY-001` — Dispatch success is not effect success. Every step MUST
 declare at least one read-back verification capability and expectation schema.
 
-`POA-VERIFY-002` — The event journal MUST distinguish requested, planned,
-authorized, started, completed, verified, failed and compensated facts.
-Optimistic concurrency or equivalent single-consumption control is required.
+`POA-VERIFY-002` — The event journal MUST emit closed `poa.event/v1` records and
+distinguish requested, planned, authorized, started, lease-renewed, completed,
+verified, failed, compensated, cancelled, timed-out, denied and expired facts.
+Sequence numbers and optimistic concurrency or equivalent single-consumption
+control are required.
 
 `POA-RECEIPT-001` — A terminal receipt MUST bind the process, plan, grant,
 intent, exact step URIs and verification artifacts. It MUST record bounded
@@ -197,7 +223,11 @@ The machine contract is `standard/poa-process.schema.v1.json`.
 |---|---|---|---|
 | `poa.process/v1` | process owner | capabilities, DAG, effects, verification | none |
 | `poa.request/v1` | human/LLM/MCP | inspect or request a plan by immutable refs | none |
+| `poa.observation/v1` | observer/Digital Twin | fresh, immutable target facts | evidence only |
+| `poa.binding/v1` | trusted registry | exact capability/URI/target/adapter selection | none |
 | `poa.plan/v1` | trusted planner | exact URI/target plan and required authority | none |
+| `poa.execution-envelope/v1` | authority boundary | exact dispatch binding and lease | bounded dispatch input |
+| `poa.event/v1` | executor/control | ordered lifecycle and lease facts | historical evidence only |
 | `poa.receipt/v1` | trusted executor/verifier | immutable execution and effect evidence | historical evidence only |
 
 The process definition deliberately has no concrete connector URI. The plan
@@ -214,7 +244,7 @@ An MCP façade conforming to POA SHOULD expose a narrow surface:
   original request, execution id, plan hash, grant ref and intent ref.
 
 The execute envelope is not generated by the POA GBNF. A control plane builds
-it after authority reconciliation.
+and validates `poa.execution-envelope/v1` after authority reconciliation.
 
 The MCP server MUST:
 
@@ -265,6 +295,11 @@ A conforming implementation fails closed when:
 - a plan expired or was already consumed;
 - output verification fails.
 
+Cancellation, timeout, denial and expiry are terminal outcomes, not generic
+failures. Each MUST produce an event and a terminal receipt. A client disconnect
+does not by itself cancel a run; cancellation is an authorized, idempotent
+control operation bound to the execution id.
+
 Failure events and receipts SHOULD use stable error codes and MUST avoid copying
 rejected values, prompts, secrets or unbounded stdout/stderr.
 
@@ -286,8 +321,8 @@ enough to claim POA-X.
 - Removing a field, tightening accepted existing values or changing canonical
   key order requires a new contract version.
 - New object fields cannot be silently added because objects are closed.
-- GBNF and JSON Schema are released as one compatibility unit and SHOULD have
-  recorded SHA-256 digests.
+- GBNF and JSON Schema are released as one compatibility unit and MUST have
+  recorded SHA-256 digests plus the `RFC8785+SHA-256` hash profile.
 - Old receipts remain readable and auditable after a new process version.
 
 ## 10. Evidence basis

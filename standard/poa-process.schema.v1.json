@@ -1,13 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://wellmanifest.dev/schemas/poa/poa-process.schema.v1.json",
-  "title": "POA process, request, plan and receipt contracts v1",
+  "title": "POA process, request, binding, observation, plan, execution and receipt contracts v1",
   "description": "Closed document family for Process-Oriented Architecture. A valid document describes data; it never grants execution authority.",
   "oneOf": [
     {"$ref": "#/$defs/process"},
     {"$ref": "#/$defs/requestInspect"},
     {"$ref": "#/$defs/requestPlan"},
+    {"$ref": "#/$defs/binding"},
+    {"$ref": "#/$defs/observation"},
     {"$ref": "#/$defs/plan"},
+    {"$ref": "#/$defs/executionEnvelope"},
+    {"$ref": "#/$defs/event"},
     {"$ref": "#/$defs/receipt"}
   ],
   "$defs": {
@@ -50,6 +54,16 @@
       "maxLength": 320,
       "pattern": "^schema://[a-z0-9.-]+/[A-Za-z0-9._:/-]+/v[1-9][0-9]*$"
     },
+    "grammarRef": {
+      "type": "string",
+      "maxLength": 320,
+      "pattern": "^grammar://[a-z0-9.-]+/[A-Za-z0-9._:/-]+/v[1-9][0-9]*$"
+    },
+    "adapterRef": {
+      "type": "string",
+      "maxLength": 240,
+      "pattern": "^adapter://[a-z0-9.-]+/[A-Za-z0-9._:/-]+/v[1-9][0-9]*$"
+    },
     "targetRef": {
       "type": "string",
       "maxLength": 240,
@@ -59,6 +73,24 @@
       "type": "string",
       "maxLength": 320,
       "pattern": "^[a-z][a-z0-9+.-]*://[A-Za-z0-9._:-]+(?:/[A-Za-z0-9._:-]+)*/(?:query|command)/[A-Za-z0-9._:-]+$"
+    },
+    "effect": {
+      "enum": [
+        "read_data",
+        "local_write",
+        "external_write",
+        "credential_use",
+        "quota_consumption",
+        "remote_session",
+        "destructive"
+      ]
+    },
+    "effects": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/effect"}
     },
     "verification": {
       "type": "object",
@@ -76,7 +108,7 @@
         "id",
         "capability_ref",
         "kind",
-        "effect_class",
+        "effects",
         "depends_on",
         "requires_approval",
         "timeout_seconds",
@@ -88,15 +120,7 @@
         "id": {"$ref": "#/$defs/identifier"},
         "capability_ref": {"$ref": "#/$defs/capabilityRef"},
         "kind": {"enum": ["query", "command"]},
-        "effect_class": {
-          "enum": [
-            "read_only",
-            "local_write",
-            "external_write",
-            "credential_use",
-            "destructive"
-          ]
-        },
+        "effects": {"$ref": "#/$defs/effects"},
         "depends_on": {
           "type": "array",
           "maxItems": 32,
@@ -120,8 +144,13 @@
           "if": {"properties": {"kind": {"const": "query"}}, "required": ["kind"]},
           "then": {
             "properties": {
-              "effect_class": {"const": "read_only"},
-              "requires_approval": {"const": false},
+              "effects": {
+                "not": {
+                  "contains": {
+                    "enum": ["local_write", "external_write", "destructive"]
+                  }
+                }
+              },
               "idempotency": {"const": "read_only"}
             }
           }
@@ -129,9 +158,13 @@
         {
           "if": {
             "properties": {
-              "effect_class": {"enum": ["external_write", "credential_use", "destructive"]}
+              "effects": {
+                "contains": {
+                  "enum": ["external_write", "credential_use", "quota_consumption", "remote_session", "destructive"]
+                }
+              }
             },
-            "required": ["effect_class"]
+            "required": ["effects"]
           },
           "then": {"properties": {"requires_approval": {"const": true}}}
         }
@@ -194,6 +227,58 @@
         "input_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "binding_id",
+        "capability_ref",
+        "process_uri",
+        "target_ref",
+        "adapter_ref",
+        "observation_ref",
+        "observation_sha256",
+        "priority"
+      ],
+      "properties": {
+        "schema": {"const": "poa.binding/v1"},
+        "binding_id": {"$ref": "#/$defs/identifier"},
+        "capability_ref": {"$ref": "#/$defs/capabilityRef"},
+        "process_uri": {"$ref": "#/$defs/processUri"},
+        "target_ref": {"$ref": "#/$defs/targetRef"},
+        "adapter_ref": {"$ref": "#/$defs/adapterRef"},
+        "observation_ref": {"$ref": "#/$defs/artifactRef"},
+        "observation_sha256": {"$ref": "#/$defs/sha256"},
+        "priority": {"type": "integer", "minimum": -1000, "maximum": 1000}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "observation_id",
+        "target_ref",
+        "observed_at",
+        "valid_until",
+        "fact_schema_ref",
+        "facts_ref",
+        "facts_sha256",
+        "read_only"
+      ],
+      "properties": {
+        "schema": {"const": "poa.observation/v1"},
+        "observation_id": {"$ref": "#/$defs/identifier"},
+        "target_ref": {"$ref": "#/$defs/targetRef"},
+        "observed_at": {"type": "string", "maxLength": 40, "format": "date-time"},
+        "valid_until": {"type": "string", "maxLength": 40, "format": "date-time"},
+        "fact_schema_ref": {"$ref": "#/$defs/schemaRef"},
+        "facts_ref": {"$ref": "#/$defs/artifactRef"},
+        "facts_sha256": {"$ref": "#/$defs/sha256"},
+        "read_only": {"const": true}
+      }
+    },
     "dslContract": {
       "type": "object",
       "additionalProperties": false,
@@ -203,15 +288,19 @@
         "schema_sha256",
         "grammar_sha256",
         "canonical_sha256",
+        "canonicalization",
+        "hash_algorithm",
         "validated",
         "additional_properties"
       ],
       "properties": {
         "schema_ref": {"$ref": "#/$defs/schemaRef"},
-        "grammar_ref": {"$ref": "#/$defs/schemaRef"},
+        "grammar_ref": {"$ref": "#/$defs/grammarRef"},
         "schema_sha256": {"$ref": "#/$defs/sha256"},
         "grammar_sha256": {"$ref": "#/$defs/sha256"},
         "canonical_sha256": {"$ref": "#/$defs/sha256"},
+        "canonicalization": {"const": "RFC8785"},
+        "hash_algorithm": {"const": "SHA-256"},
         "validated": {"const": true},
         "additional_properties": {"const": false}
       }
@@ -225,7 +314,7 @@
         "process_uri",
         "target_ref",
         "kind",
-        "effect_class",
+        "effects",
         "depends_on",
         "input_ref",
         "input_sha256",
@@ -240,9 +329,7 @@
         "process_uri": {"$ref": "#/$defs/processUri"},
         "target_ref": {"$ref": "#/$defs/targetRef"},
         "kind": {"enum": ["query", "command"]},
-        "effect_class": {
-          "enum": ["read_only", "local_write", "external_write", "credential_use", "destructive"]
-        },
+        "effects": {"$ref": "#/$defs/effects"},
         "depends_on": {
           "type": "array",
           "maxItems": 32,
@@ -305,6 +392,7 @@
         "dsl_contract",
         "authority_requirements",
         "execution_boundary",
+        "hash_profile",
         "plan_hash"
       ],
       "properties": {
@@ -322,7 +410,88 @@
         "dsl_contract": {"$ref": "#/$defs/dslContract"},
         "authority_requirements": {"$ref": "#/$defs/authorityRequirements"},
         "execution_boundary": {"$ref": "#/$defs/executionBoundary"},
+        "hash_profile": {"const": "RFC8785+SHA-256"},
         "plan_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "executionEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "execution_id",
+        "request_ref",
+        "plan_ref",
+        "grant_ref",
+        "intent_ref",
+        "subject",
+        "lease_expires_at",
+        "lease_revision",
+        "idempotency_key"
+      ],
+      "properties": {
+        "schema": {"const": "poa.execution-envelope/v1"},
+        "execution_id": {"$ref": "#/$defs/identifier"},
+        "request_ref": {"$ref": "#/$defs/sha256Ref"},
+        "plan_ref": {"$ref": "#/$defs/sha256Ref"},
+        "grant_ref": {"type": "string", "maxLength": 160, "pattern": "^grant:[a-zA-Z0-9._:-]+$"},
+        "intent_ref": {"type": "string", "maxLength": 160, "pattern": "^intent:[a-zA-Z0-9._:-]+$"},
+        "subject": {"type": "string", "maxLength": 160, "pattern": "^(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+$"},
+        "lease_expires_at": {"type": "string", "maxLength": 40, "format": "date-time"},
+        "lease_revision": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+        "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 160, "pattern": "^[A-Za-z0-9._:-]+$"}
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "event_id",
+        "run_id",
+        "sequence",
+        "process_ref",
+        "plan_ref",
+        "event_type",
+        "occurred_at",
+        "artifact_refs",
+        "raw_output_included",
+        "secret_material_included"
+      ],
+      "properties": {
+        "schema": {"const": "poa.event/v1"},
+        "event_id": {"$ref": "#/$defs/identifier"},
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "sequence": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+        "process_ref": {"$ref": "#/$defs/processRef"},
+        "plan_ref": {"$ref": "#/$defs/sha256Ref"},
+        "event_type": {
+          "enum": [
+            "requested",
+            "planned",
+            "authorized",
+            "started",
+            "lease_renewed",
+            "completed",
+            "verified",
+            "failed",
+            "compensated",
+            "cancelled",
+            "timed_out",
+            "denied",
+            "expired"
+          ]
+        },
+        "occurred_at": {"type": "string", "maxLength": 40, "format": "date-time"},
+        "step_id": {"$ref": "#/$defs/identifier"},
+        "artifact_refs": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/artifactRef"}
+        },
+        "raw_output_included": {"const": false},
+        "secret_material_included": {"const": false}
       }
     },
     "stepReceipt": {
@@ -341,7 +510,7 @@
       "properties": {
         "step_id": {"$ref": "#/$defs/identifier"},
         "process_uri": {"$ref": "#/$defs/processUri"},
-        "state": {"enum": ["succeeded", "failed", "compensated", "skipped"]},
+        "state": {"enum": ["succeeded", "failed", "compensated", "skipped", "cancelled", "timed_out", "denied", "expired"]},
         "attempts": {"type": "integer", "minimum": 0, "maximum": 5},
         "output_sha256": {"$ref": "#/$defs/sha256"},
         "output_bytes": {"type": "integer", "minimum": 0, "maximum": 100000000},
@@ -371,6 +540,7 @@
         "steps",
         "raw_output_included",
         "secret_material_included",
+        "hash_profile",
         "receipt_hash"
       ],
       "properties": {
@@ -380,7 +550,7 @@
         "plan_ref": {"$ref": "#/$defs/sha256Ref"},
         "grant_ref": {"type": "string", "maxLength": 160, "pattern": "^grant:[a-zA-Z0-9._:-]+$"},
         "intent_ref": {"type": "string", "maxLength": 160, "pattern": "^intent:[a-zA-Z0-9._:-]+$"},
-        "state": {"enum": ["succeeded", "failed", "compensated"]},
+        "state": {"enum": ["succeeded", "failed", "compensated", "cancelled", "timed_out", "denied", "expired"]},
         "started_at": {"type": "string", "maxLength": 40, "format": "date-time"},
         "completed_at": {"type": "string", "maxLength": 40, "format": "date-time"},
         "steps": {
@@ -391,6 +561,7 @@
         },
         "raw_output_included": {"const": false},
         "secret_material_included": {"const": false},
+        "hash_profile": {"const": "RFC8785+SHA-256"},
         "receipt_hash": {"$ref": "#/$defs/sha256"}
       }
     }
