@@ -40,3 +40,11 @@ lease_and_terminal_events=true rfc8785_sha256_profile=true
 GOV-PASS: passed (0 errors, 0 warnings)
 docker compose run --rm --build conformance
 ok=true adversarial_rejections=18
+
+2026-08-13 trusted publication
+- Pull request: wellmanifest/poa#1.
+- Validator approved exact head 4ca6e3a39e2456eb683ae3e752fbe793abc3df82.
+- Dedicated actor: ifuri-validator-agent.
+- Explicit merge completed as 001990d3b58498f2ee4aea9ec2860256c3c9e26b.
+- Post-merge push workflow 31732588118: PASS for test, governance and
+  windows-governance.
