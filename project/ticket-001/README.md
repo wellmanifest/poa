@@ -2,8 +2,8 @@
 
 - **ID**: ticket-001
 - **Owner**: unresolved:human
-- **Status**: IN_PROGRESS
-- **Workflow state**: PUBLICATION
+- **Status**: DONE
+- **Workflow state**: DONE
 - **Created**: 2026-08-12
 
 ## Goal and scope
@@ -43,8 +43,10 @@ release creation.
 - Scoped governance structure check: passed.
 - Initial Git baseline created as `67729d63949a8dfb8422435f808316065484da47`;
   bounded delivery is bound to that exact SHA. Host and networkless Docker
-  conformance, governance and diff hygiene passed; trusted exact-head review
-  and merge remain pending after ticket-branch publication.
+  conformance, governance and diff hygiene passed.
+- Validator approved exact head `4ca6e3a39e2456eb683ae3e752fbe793abc3df82`
+  and explicit merge published it as
+  `001990d3b58498f2ee4aea9ec2860256c3c9e26b`.
 
 ## Participants
 

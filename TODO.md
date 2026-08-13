@@ -12,5 +12,5 @@
 - [x] Add multi-dimensional effects, canonical hash profile, leases and full
   terminal-state semantics.
 - [x] Validate the isolated Docker test environment and scoped governance files.
-- [ ] Publish the validated ticket branch and obtain trusted exact-head review
+- [x] Publish the validated ticket branch and obtain trusted exact-head review
   through its pull request.
