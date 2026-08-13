@@ -6,5 +6,6 @@ This file indexes governance tickets without taking ownership of
 <!-- AUTO:TICKET_INDEX:START -->
 | Ticket ID | Spec | Preprompt | Human input | Agent plans | Agent logs | Changelog |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| ticket-001 | [spec](ticket-001/README.md) | [preprompt](ticket-001/preprompt.md) | unresolved:human | [ai-codex](ticket-001/ai-codex.md) | [log](ticket-001/ai-codex-logs.txt) | [changes](ticket-001/changelog.md) |
+| **ticket-001** | [`README.md`](./ticket-001/README.md) | [`preprompt.md`](./ticket-001/preprompt.md) | - |  [`ai-codex.md`](./ticket-001/ai-codex.md) |  [`ai-codex-logs.txt`](./ticket-001/ai-codex-logs.txt) | [`changelog.md`](./ticket-001/changelog.md) |
+| **ticket-002** | [`README.md`](./ticket-002/README.md) | [`preprompt.md`](./ticket-002/preprompt.md) | - |  [`ai-codex.md`](./ticket-002/ai-codex.md) |  [`ai-codex-logs.txt`](./ticket-002/ai-codex-logs.txt) | [`changelog.md`](./ticket-002/changelog.md) |
 <!-- AUTO:TICKET_INDEX:END -->
