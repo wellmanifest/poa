@@ -19,5 +19,76 @@
   "stacks": ["docker"],
   "dependsOn": [],
   "conflictsWith": [],
-  "integrationTicket": null
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "63e985cefaed303cc86701b1847b29023ffe3ded",
+    "targetBranch": "main",
+    "outcome": "A reusable POA v1 standard with closed authoring, binding, observation, planning, execution, event and receipt contracts plus deterministic conformance",
+    "nonGoals": [
+      "Do not implement a runtime or generic remote executor",
+      "Do not grant authority to an LLM, DSL document, URI resolver or transport",
+      "Do not carry credentials, shell commands or arbitrary transport configuration",
+      "Do not push implementation directly to main, merge, tag or publish a release"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Keep typed process definition, request, plan and receipt data separate from external policy, grant, execution and verification authorities.",
+      "components": [
+        {
+          "name": "normative-contract",
+          "paths": [
+            "standard/poa-process.schema.v1.json",
+            "standard/poa-process.v1.gbnf"
+          ]
+        },
+        {
+          "name": "conformance-and-guidance",
+          "paths": [
+            "standard/conformance.py",
+            "docs/ARCHITECTURE.md",
+            "docs/LOGIC_FLOW.md"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [
+        "Introduce the experimental wellmanifest.poa/v1 document family",
+        "Represent simultaneous effects as a bounded set rather than one lossy class",
+        "Bind canonical plan and receipt hashes to RFC 8785 plus SHA-256"
+      ],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Remove the five ticket-owned standard files while preserving the governed baseline and ticket evidence."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-04",
+        "commands": [
+          "python3 standard/conformance.py --all"
+        ],
+        "evidence": "project/ticket-001/ai-codex-logs.txt"
+      },
+      {
+        "criterion": "AC-06",
+        "commands": [
+          "docker compose run --rm conformance",
+          "./project/governance-check.sh --actor agent"
+        ],
+        "evidence": "project/ticket-001/ai-codex-logs.txt"
+      }
+    ]
+  }
 }
