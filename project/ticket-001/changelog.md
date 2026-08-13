@@ -17,3 +17,8 @@
 - Replaced scalar effect classification with bounded multi-dimensional effects.
 - Declared RFC 8785 plus SHA-256 hashing, a dedicated grammar reference type,
   lease renewal and complete terminal outcomes.
+
+## 2026-08-13 CI inheritance
+
+- Merged `main` after ticket-002 published governed checks and rebound
+  `acceptedBaseSha` to `63e985cefaed303cc86701b1847b29023ffe3ded`.

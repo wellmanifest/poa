@@ -21,7 +21,7 @@
   "conflictsWith": [],
   "integrationTicket": null,
   "delivery": {
-    "acceptedBaseSha": "67729d63949a8dfb8422435f808316065484da47",
+    "acceptedBaseSha": "63e985cefaed303cc86701b1847b29023ffe3ded",
     "targetBranch": "main",
     "outcome": "A reusable POA v1 standard with closed authoring, binding, observation, planning, execution, event and receipt contracts plus deterministic conformance",
     "nonGoals": [
