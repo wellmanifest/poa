@@ -1,0 +1,178 @@
+name: poa-ci
+
+on:
+  push:
+  pull_request:
+  pull_request_review:
+    types: [submitted, dismissed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  governance:
+    if: >-
+      (github.event_name == 'push' &&
+      github.ref_name == github.event.repository.default_branch) ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request_review' &&
+      (github.event.action == 'submitted' ||
+      (github.event.action == 'dismissed' &&
+      github.event.review.commit_id == github.event.pull_request.head.sha)))
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: wellmanifest/new-project/.github/workflows/governance.yml@3549d21a5a31fea87b2dd4da37d8e8bd793f20f6
+    with:
+      standard-ref: 3549d21a5a31fea87b2dd4da37d8e8bd793f20f6
+      trusted-validator-apps: 'ifuri-validator-agent[bot]'
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.12'
+      - name: Resolve exact change boundary
+        id: revision
+        shell: bash
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          base="$EVENT_BASE_SHA"
+          mode=range
+          if [[ ! "$EVENT_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'event head is not an exact Git SHA' >&2
+            exit 1
+          fi
+          git cat-file -e "$EVENT_HEAD_SHA^{commit}"
+          if [[ ("$EVENT_NAME" == push || "$EVENT_NAME" == workflow_dispatch) &&
+                "$REF_NAME" == "$DEFAULT_BRANCH" ]]; then
+            mode=repository
+          elif [[ "$EVENT_NAME" == push || "$EVENT_NAME" == workflow_dispatch ]]; then
+            base="$(git merge-base "$EVENT_HEAD_SHA" "origin/$DEFAULT_BRANCH")"
+          elif [[ ! "$base" =~ ^[0-9a-f]{40}$ ||
+                  "$base" == 0000000000000000000000000000000000000000 ]]; then
+            base="$(git rev-parse HEAD^)"
+          fi
+          if [[ "$mode" == range ]]; then
+            git cat-file -e "$base^{commit}"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "head=$EVENT_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+      - name: Validate required check contract
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          contract = json.loads(Path('.governance/required-checks.json').read_text())
+          required = contract['requiredCheckNames']
+          workflow = Path('.github/workflows/ci.yml').read_text().splitlines()
+          in_jobs = False
+          jobs = []
+          for line in workflow:
+              if line == 'jobs:':
+                  in_jobs = True
+                  continue
+              if not in_jobs:
+                  continue
+              if line and not line.startswith(' '):
+                  break
+              match = re.fullmatch(r'  ([A-Za-z0-9][A-Za-z0-9_-]*):', line)
+              if match:
+                  jobs.append(match.group(1))
+          published = [job for job in jobs if job != 'governance']
+          if published != required:
+              raise SystemExit(
+                  f'required check drift: required={required!r} published={published!r}'
+              )
+          print(f'required checks PASS: {published}')
+          PY
+      - name: Validate Linux governance
+        shell: bash
+        env:
+          BASE_SHA: ${{ steps.revision.outputs.base }}
+          HEAD_SHA: ${{ steps.revision.outputs.head }}
+          VALIDATION_MODE: ${{ steps.revision.outputs.mode }}
+        run: |
+          set -euo pipefail
+          args=(--actor ci)
+          if [[ "$VALIDATION_MODE" == range ]]; then
+            args+=(--base "$BASE_SHA" --head "$HEAD_SHA")
+          else
+            args+=(--changed-file project/TICKETS.md)
+          fi
+          ./project/governance-check.sh "${args[@]}"
+      - name: Run POA conformance
+        if: ${{ hashFiles('standard/conformance.py') != '' }}
+        run: python3 standard/conformance.py --all
+      - name: Run networkless Docker conformance
+        if: ${{ hashFiles('standard/conformance.py') != '' }}
+        run: |
+          docker build -t wellmanifest-poa-ci .
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=16m \
+            wellmanifest-poa-ci
+
+  windows-governance:
+    runs-on: windows-latest
+    steps:
+      - name: Preserve managed LF line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+      - name: Check out exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.12'
+      - name: Validate Windows governance
+        shell: pwsh
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:EVENT_HEAD_SHA -notmatch '^[0-9a-f]{40}$') {
+            throw 'invalid head SHA'
+          }
+          $repositoryMode = (
+            ($env:EVENT_NAME -eq 'push' -or $env:EVENT_NAME -eq 'workflow_dispatch') -and
+            $env:REF_NAME -eq $env:DEFAULT_BRANCH
+          )
+          if ($repositoryMode) {
+            ./project.bat --actor ci --changed-file project/TICKETS.md
+          } else {
+            $base = $env:EVENT_BASE_SHA
+            if ($env:EVENT_NAME -eq 'push' -or $env:EVENT_NAME -eq 'workflow_dispatch') {
+              $base = (git merge-base $env:EVENT_HEAD_SHA "origin/$($env:DEFAULT_BRANCH)").Trim()
+            } elseif ($base -notmatch '^[0-9a-f]{40}$' -or $base -eq ('0' * 40)) {
+              $base = (git rev-parse 'HEAD^').Trim()
+            }
+            ./project.bat --actor ci --base $base --head $env:EVENT_HEAD_SHA
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Windows governance failed' }
