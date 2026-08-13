@@ -64,7 +64,7 @@
     "validation": [
       {
         "criterion": "AC-02",
-        "commands": ["python3 .governance/check_required_checks.py --root . --source .governance/required-checks.json --workflow .github/workflows/ci.yml"],
+        "commands": ["workflow test job: Validate required check contract"],
         "evidence": "The workflow exposes the required Linux and Windows checks."
       },
       {

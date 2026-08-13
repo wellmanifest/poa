@@ -3,7 +3,7 @@
 - **ID**: ticket-002
 - **Owner**: unresolved:human
 - **Status**: IN_PROGRESS
-- **Workflow state**: EDIT
+- **Workflow state**: PUBLICATION
 - **Created**: 2026-08-13
 
 ## Goal and scope
@@ -23,14 +23,14 @@ modification of ticket-001 implementation files.
 
 - [x] AC-01: Scope is approved by the user's continuation request and recorded
   before implementation.
-- [ ] AC-02: The workflow exposes deterministic `test` and
+- [x] AC-02: The workflow exposes deterministic `test` and
   `windows-governance` checks using immutable action references.
-- [ ] AC-03: Linux validates the exact change boundary and runs POA
+- [x] AC-03: Linux validates the exact change boundary and runs POA
   conformance in Docker with networking disabled when the standard exists.
-- [ ] AC-04: Windows validates the managed entrypoint for the exact revision.
-- [ ] AC-05: Trusted-review resolution remains external and pinned to an
+- [x] AC-04: Windows validates the managed entrypoint for the exact revision.
+- [x] AC-05: Trusted-review resolution remains external and pinned to an
   immutable `wellmanifest/new-project` reusable workflow revision.
-- [ ] AC-06: Workflow syntax, local governance and Docker availability checks
+- [x] AC-06: Workflow syntax, local governance and Docker availability checks
   pass before publication.
 
 ## Participants

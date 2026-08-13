@@ -1,7 +1,7 @@
 # TODO
 
 - [ ] Bootstrap governed CI checks in `project/ticket-002/`; state:
-  `IN_PROGRESS / EDIT`; classification: `BUG / P1 / requested`; workstream:
+  `IN_PROGRESS / PUBLICATION`; classification: `BUG / P1 / requested`; workstream:
   `infrastructure`.
 - [x] Create the governed POA v1 architecture ticket: `project/ticket-001/`.
 - [x] Define normative architecture and logic-flow documentation.
