@@ -1,0 +1,87 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-002",
+  "summary": "Bootstrap governed CI checks",
+  "workstream": "infrastructure",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "requested"
+  },
+  "allowedPaths": [
+    "project/ticket-002/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    ".github/workflows/ci.yml"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md",
+    ".governance/**",
+    "AGENTS.md",
+    "docs/**",
+    "standard/**",
+    "Dockerfile",
+    "compose.yml"
+  ],
+  "stacks": ["docker"],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "67729d63949a8dfb8422435f808316065484da47",
+    "targetBranch": "main",
+    "outcome": "Target-owned deterministic Linux and Windows checks plus a pinned independent-review hand-off protect POA publication.",
+    "nonGoals": [
+      "Modify ticket-001 implementation files",
+      "Change branch protection or merge either pull request",
+      "Add secrets, tags or releases",
+      "Modify the reusable governance workflow or Validator App"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 25,
+    "budgets": {
+      "maxImplementationFiles": 1,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Use one target-owned workflow for exact-range Linux, Windows and conditional networkless Docker checks while delegating approval resolution to an immutable reusable governance workflow.",
+      "components": [
+        {
+          "name": "hosted-validation-boundary",
+          "paths": [".github/workflows/ci.yml"]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {"impact": "none", "states": [], "evidence": []},
+      "rollback": "Remove the workflow through a reviewed infrastructure ticket; local governance and POA conformance entrypoints remain available."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-02",
+        "commands": ["python3 .governance/check_required_checks.py --root . --source .governance/required-checks.json --workflow .github/workflows/ci.yml"],
+        "evidence": "The workflow exposes the required Linux and Windows checks."
+      },
+      {
+        "criterion": "AC-03",
+        "commands": ["workflow test job", "docker run --network none"],
+        "evidence": "Linux governance and conditional POA conformance pass without network access."
+      },
+      {
+        "criterion": "AC-04",
+        "commands": ["workflow windows-governance job"],
+        "evidence": "The managed Windows entrypoint validates exact revisions."
+      },
+      {
+        "criterion": "AC-06",
+        "commands": ["actionlint .github/workflows/ci.yml", "./project/governance-check.sh --actor agent"],
+        "evidence": "Workflow syntax and local governance pass."
+      }
+    ]
+  }
+}
