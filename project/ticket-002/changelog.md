@@ -10,3 +10,8 @@
   reusable-governance boundaries.
 - Bound non-default push validation to the merge-base with the authoritative
   default branch, including the zero-before branch-creation event.
+
+## 2026-08-13 publication
+
+- Closed after `ifuri-validator-agent` approved and merged pull request #2 at
+  `e85978201a1738f18286fddfbd96003d8a30c3a9`.
