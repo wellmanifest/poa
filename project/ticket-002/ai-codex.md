@@ -35,6 +35,8 @@ POA standard under review.
   `wellmanifest/new-project@3549d21a5a31fea87b2dd4da37d8e8bd793f20f6`.
 - Actionlint, required-check drift, intent schema, local governance, diff
   hygiene and the real Docker conformance path pass; moved to `PUBLICATION`.
+- Corrected non-default push validation to use the authoritative merge-base
+  with `origin/main`, avoiding a stale-base false failure on branch creation.
 
 ## Blockers
 

@@ -62,6 +62,8 @@ jobs:
           if [[ ("$EVENT_NAME" == push || "$EVENT_NAME" == workflow_dispatch) &&
                 "$REF_NAME" == "$DEFAULT_BRANCH" ]]; then
             mode=repository
+          elif [[ "$EVENT_NAME" == push || "$EVENT_NAME" == workflow_dispatch ]]; then
+            base="$(git merge-base "$EVENT_HEAD_SHA" "origin/$DEFAULT_BRANCH")"
           elif [[ ! "$base" =~ ^[0-9a-f]{40}$ ||
                   "$base" == 0000000000000000000000000000000000000000 ]]; then
             base="$(git rev-parse HEAD^)"
@@ -166,7 +168,9 @@ jobs:
             ./project.bat --actor ci --changed-file project/TICKETS.md
           } else {
             $base = $env:EVENT_BASE_SHA
-            if ($base -notmatch '^[0-9a-f]{40}$' -or $base -eq ('0' * 40)) {
+            if ($env:EVENT_NAME -eq 'push' -or $env:EVENT_NAME -eq 'workflow_dispatch') {
+              $base = (git merge-base $env:EVENT_HEAD_SHA "origin/$($env:DEFAULT_BRANCH)").Trim()
+            } elseif ($base -notmatch '^[0-9a-f]{40}$' -or $base -eq ('0' * 40)) {
               $base = (git rev-parse 'HEAD^').Trim()
             }
             ./project.bat --actor ci --base $base --head $env:EVENT_HEAD_SHA

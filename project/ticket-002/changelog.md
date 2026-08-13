@@ -8,3 +8,5 @@
   conditional networkless Docker conformance and external trusted review.
 - Added the target workflow and validated its Linux, Windows, Docker and
   reusable-governance boundaries.
+- Bound non-default push validation to the merge-base with the authoritative
+  default branch, including the zero-before branch-creation event.
