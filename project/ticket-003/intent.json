@@ -1,0 +1,93 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-003",
+  "summary": "Ticket queue CQRS ES with schedule quota and if-uri view",
+  "workstream": "integration",
+  "classification": {
+    "kind": "FEATURE",
+    "priority": "P1",
+    "origin": "requested"
+  },
+  "allowedPaths": [
+    "project/ticket-003/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/**"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md",
+    ".governance/**",
+    "AGENTS.md",
+    "docs/**",
+    ".github/**"
+  ],
+  "stacks": ["docker"],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "8424a7f5c977915ee08404b8b82d63e0f5e44ea2",
+    "targetBranch": "main",
+    "outcome": "Closed POA ticketed process-queue pack: protobuf+JSON CQRS/ES, sequential schedule with dependencies, operation and twin-node quotas, if-uri catalog query, and analysis P0/P1 seed. RuntimeOwner stays subactor; no daemon and no Control restart.",
+    "nonGoals": [
+      "Do not implement a scheduler daemon inside wellmanifest",
+      "Do not restart Control or mutate the dirty core bind-mount",
+      "Do not open a GitHub pull request",
+      "Do not ticket www-sub-actor 16 as needing founder approve",
+      "Do not touch doctor-hygiene, policy-dsl 4, ticket-077, skills-agent, platform deploy-missing-modules, or port 8780"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Adopt POA as the ticket/process-queue source of truth. Commands append events; ProcessQueueView and if-uri node list are queries. Queue adapter rejects enqueue without a registered inspectable ticket_id. Subactor planfile/doctor/control must read these tickets at runtime.",
+      "components": [
+        {
+          "name": "ticket-queue-contract",
+          "paths": [
+            "standard/wellmanifest/poa/v1/ticket_queue.proto",
+            "standard/ticket-queue.schema.v1.json",
+            "standard/seed/p0p1-tickets.v1.json"
+          ]
+        },
+        {
+          "name": "ticket-queue-adapter",
+          "paths": [
+            "standard/ticket_queue.py",
+            "standard/conformance.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [
+        "Introduce the closed poa.ticket/v1 process-queue, schedule, quota and view family"
+      ],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Remove the four new standard files and the conformance hook; existing POA v1 process contracts remain unchanged."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-02",
+        "commands": ["python3 standard/ticket_queue.py"],
+        "evidence": "project/ticket-003/ai-grok-logs.txt"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": ["python3 standard/conformance.py --all"],
+        "evidence": "project/ticket-003/ai-grok-logs.txt"
+      }
+    ]
+  }
+}

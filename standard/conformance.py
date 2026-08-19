@@ -1122,6 +1122,9 @@ def run_all() -> dict[str, Any]:
     receipt = example_receipt(plan)
     validate_receipt(contracts, receipt)
     rejected = adversarial_checks(contracts)
+    from ticket_queue import run_ticket_queue_conformance
+
+    ticket_queue = run_ticket_queue_conformance()
     return {
         "schema": "poa.conformance-report/v1",
         "ok": True,
@@ -1140,6 +1143,7 @@ def run_all() -> dict[str, Any]:
             "receipt_hash_binding": True,
             "secret_free_receipt": True,
             "adversarial_rejections": rejected,
+            "ticket_queue": ticket_queue,
         },
         "examples": {
             "process_ref": process["process_ref"],

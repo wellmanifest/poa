@@ -1,0 +1,582 @@
+{
+  "schema": "poa.ticket-queue-seed/v1",
+  "observed_at": "2026-08-15T20:46:00+02:00",
+  "timezone": "Europe/Warsaw",
+  "runtime_owner": "subactor",
+  "home": "wellmanifest",
+  "do_not_execute": [
+    "control-restart",
+    "github-pr-create",
+    "www-sub-actor-16-approve"
+  ],
+  "do_not_touch": [
+    "ticket-077",
+    "skills-agent-dirty",
+    "platform-codex-deploy-missing-modules",
+    "dirty-core-main-bind-mount",
+    "port-8780",
+    "wellmanifest-policy-dsl-4",
+    "doctor-hygiene-sibling"
+  ],
+  "completed_not_tickets": [
+    "www-sub-actor-16-merged",
+    "github-com-4-merged",
+    "testql-subactor-local-127-passed",
+    "purple-otp-live-8791",
+    "mailpit-8026",
+    "founder-subactor-com-tls-200"
+  ],
+  "account_quota": {
+    "schema": "poa.account-quota/v1",
+    "account_id": "acct.subactor.basic",
+    "operations_remaining": 1000,
+    "operations_period": "month",
+    "operations_allowance": 1000,
+    "plan": "basic",
+    "twin_nodes_allowed": 2,
+    "twin_clones_in_use": 1
+  },
+  "if_uri_catalog": {
+    "schema": "poa.if-uri-node-catalog/v1",
+    "catalog_id": "if-uri",
+    "label": "Nody (if-uri)",
+    "source_uri": "file:///home/tom/github/if-uri",
+    "source_doc": "file:///home/tom/github/if-uri/docs/node-types.md",
+    "types": [
+      {"type_id": "server", "label": "Server", "catalog": "if-uri"},
+      {"type_id": "pc", "label": "PC", "catalog": "if-uri"},
+      {"type_id": "rdp", "label": "RDP", "catalog": "if-uri"},
+      {"type_id": "smartphone", "label": "Smartphone", "catalog": "if-uri"},
+      {"type_id": "browser-debug", "label": "Browser debug", "catalog": "if-uri"},
+      {"type_id": "browser-chrome-plugin", "label": "Chrome plugin", "catalog": "if-uri"},
+      {"type_id": "browser-firefox-plugin", "label": "Firefox plugin", "catalog": "if-uri"},
+      {"type_id": "webpage", "label": "Webpage", "catalog": "if-uri"},
+      {"type_id": "api", "label": "API", "catalog": "if-uri"},
+      {"type_id": "device", "label": "Device", "catalog": "if-uri"}
+    ]
+  },
+  "tickets": [
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.control-origin-unify",
+      "name": "Unify Control origin-fix across three copies",
+      "status": "scheduled",
+      "queue": "ops.auth",
+      "process_ref": "poa://subactor.test/process/control-origin-unify/v1",
+      "actor": "service:subactor-control",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P0"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.prod-tls-handshake",
+      "name": "Production TLS handshake fail on app control auth hosts",
+      "status": "scheduled",
+      "queue": "ops.tls",
+      "process_ref": "poa://subactor.test/process/prod-tls-handshake/v1",
+      "actor": "service:ingress-caddy",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P0"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.otp-email-login",
+      "name": "OTP 453a9fa exists only on twin and local branch",
+      "status": "scheduled",
+      "queue": "ops.portal",
+      "process_ref": "poa://subactor.test/process/otp-email-login/v1",
+      "actor": "service:plesk-twin",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.saas-access-request",
+      "name": "Control saas access request times out",
+      "status": "scheduled",
+      "queue": "ops.auth",
+      "process_ref": "poa://subactor.test/process/saas-access-request/v1",
+      "actor": "service:subactor-control",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.www-sub-actor-17",
+      "name": "Leave www-sub-actor draft 17 dirty about 4h",
+      "status": "scheduled",
+      "queue": "ops.hygiene",
+      "process_ref": "poa://subactor.test/process/leave-in-progress-pr/v1",
+      "actor": "agent:doctor-agent",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.llm-account-hub-32",
+      "name": "Leave llm-account-hub draft 32 about 7h",
+      "status": "scheduled",
+      "queue": "ops.hygiene",
+      "process_ref": "poa://subactor.test/process/leave-in-progress-pr/v1",
+      "actor": "agent:doctor-agent",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.policy-dsl-4",
+      "name": "Leave wellmanifest policy-dsl 4 in-progress under 2h",
+      "status": "scheduled",
+      "queue": "ops.hygiene",
+      "process_ref": "poa://subactor.test/process/leave-in-progress-pr/v1",
+      "actor": "agent:doctor-agent",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.autonomy-36",
+      "name": "Leave autonomy 36 about 6h",
+      "status": "scheduled",
+      "queue": "ops.hygiene",
+      "process_ref": "poa://subactor.test/process/leave-in-progress-pr/v1",
+      "actor": "agent:doctor-agent",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.validator-hourly",
+      "name": "Register validator hourly scan-direct fail",
+      "status": "scheduled",
+      "queue": "ops.internal",
+      "process_ref": "poa://subactor.test/process/validator-hourly/v1",
+      "actor": "service:validator-agent",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P2"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.doctor-problems-api",
+      "name": "Register doctor problems API 404",
+      "status": "scheduled",
+      "queue": "ops.internal",
+      "process_ref": "poa://subactor.test/process/doctor-problems-api/v1",
+      "actor": "agent:doctor-agent",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P2"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.ingress-18443-tls",
+      "name": "Register local 18443 TLS observe",
+      "status": "scheduled",
+      "queue": "ops.tls",
+      "process_ref": "poa://subactor.test/process/ingress-18443-tls/v1",
+      "actor": "service:ingress-caddy",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P2"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.worktree-sprawl",
+      "name": "Register worktree sprawl observe about 51",
+      "status": "scheduled",
+      "queue": "ops.hygiene",
+      "process_ref": "poa://subactor.test/process/worktree-sprawl/v1",
+      "actor": "agent:doctor-agent",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P2"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.ingress-caddy",
+      "name": "Register ingress Caddy as internal process",
+      "status": "open",
+      "queue": "ops.internal",
+      "process_ref": "poa://subactor.test/process/ingress-caddy/v1",
+      "actor": "service:ingress-caddy",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P2"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.plesk-twin",
+      "name": "Register plesk-twin 8791 as internal process",
+      "status": "open",
+      "queue": "ops.internal",
+      "process_ref": "poa://subactor.test/process/plesk-twin/v1",
+      "actor": "service:plesk-twin",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P2"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.mailpit",
+      "name": "Register Mailpit 8026 as internal process",
+      "status": "open",
+      "queue": "ops.internal",
+      "process_ref": "poa://subactor.test/process/mailpit/v1",
+      "actor": "service:mailpit",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P2"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.testql-subactor-local",
+      "name": "Register TestQL subactor-local 127 passed",
+      "status": "scheduled",
+      "queue": "ops.testql",
+      "process_ref": "poa://subactor.test/process/testql-subactor-local/v1",
+      "actor": "service:testql",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.otp-request-api",
+      "name": "Register OTP request API as internal process",
+      "status": "open",
+      "queue": "ops.portal",
+      "process_ref": "poa://subactor.test/process/otp-request-api/v1",
+      "actor": "service:plesk-twin",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.otp-login-api",
+      "name": "Register OTP login API as internal process",
+      "status": "open",
+      "queue": "ops.portal",
+      "process_ref": "poa://subactor.test/process/otp-login-api/v1",
+      "actor": "service:plesk-twin",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.quota-operations",
+      "name": "Register purchased-operations quota check",
+      "status": "open",
+      "queue": "ops.billing",
+      "process_ref": "poa://subactor.test/process/quota-operations/v1",
+      "actor": "service:subactor-control",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P0"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.quota-twin-nodes",
+      "name": "Register digital-twin node clone quota",
+      "status": "open",
+      "queue": "ops.billing",
+      "process_ref": "poa://subactor.test/process/quota-twin-nodes/v1",
+      "actor": "service:subactor-control",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P0"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.doctor-hygiene-2h",
+      "name": "Ticketed 2h repo-hygiene scan not a naked cron",
+      "status": "scheduled",
+      "queue": "ops.hygiene",
+      "process_ref": "poa://subactor.test/process/doctor-hygiene-2h/v1",
+      "actor": "agent:doctor-agent",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.if-uri-node-catalog",
+      "name": "Operator view of if-uri nodes catalog",
+      "status": "open",
+      "queue": "ops.twin",
+      "process_ref": "poa://subactor.test/process/if-uri-node-catalog/v1",
+      "actor": "service:plesk-twin",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P2"
+    },
+    {
+      "schema": "poa.ticket/v1",
+      "ticket_id": "poa.tkt.twin-local-otp-probe",
+      "name": "Digital-twin local OTP probe planned on user computer",
+      "status": "scheduled",
+      "queue": "ops.twin",
+      "process_ref": "poa://subactor.test/process/twin-local-otp-probe/v1",
+      "actor": "human:founder",
+      "inspectable": true,
+      "runtime_owner": "subactor",
+      "priority": "P1"
+    }
+  ],
+  "processes": [
+    {
+      "ticket_id": "poa.tkt.control-origin-unify",
+      "process_ref": "poa://subactor.test/process/control-origin-unify/v1",
+      "title": "Observe three origin-fix copies without restarting Control",
+      "steps": [
+        {"id": "observe-worktree-5552b4a", "capability_ref": "capability://subactor.test/git/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T09:00:00+02:00"},
+        {"id": "observe-live-bind-mount", "capability_ref": "capability://subactor.test/runtime/observe/v1", "kind": "query", "depends_on": ["observe-worktree-5552b4a"], "eta": "2026-08-16T09:10:00+02:00"},
+        {"id": "observe-origin-main-09dfb1c", "capability_ref": "capability://subactor.test/git/observe/v1", "kind": "query", "depends_on": ["observe-live-bind-mount"], "eta": "2026-08-16T09:20:00+02:00"},
+        {"id": "plan-unified-diff", "capability_ref": "capability://subactor.test/git/plan/v1", "kind": "command", "depends_on": ["observe-origin-main-09dfb1c"], "eta": "2026-08-16T09:40:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.prod-tls-handshake",
+      "process_ref": "poa://subactor.test/process/prod-tls-handshake/v1",
+      "title": "Observe production TLS handshake failures",
+      "steps": [
+        {"id": "observe-app-subactor-com", "capability_ref": "capability://subactor.test/tls/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T10:00:00+02:00"},
+        {"id": "observe-control-sub-actor", "capability_ref": "capability://subactor.test/tls/observe/v1", "kind": "query", "depends_on": ["observe-app-subactor-com"], "eta": "2026-08-16T10:10:00+02:00"},
+        {"id": "observe-auth-subactor-com", "capability_ref": "capability://subactor.test/tls/observe/v1", "kind": "query", "depends_on": ["observe-control-sub-actor"], "eta": "2026-08-16T10:20:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.otp-email-login",
+      "process_ref": "poa://subactor.test/process/otp-email-login/v1",
+      "title": "Plan OTP commit onto www-sub-actor main",
+      "steps": [
+        {"id": "observe-twin-453a9fa", "capability_ref": "capability://subactor.test/git/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T11:00:00+02:00"},
+        {"id": "observe-www-main-gap", "capability_ref": "capability://subactor.test/git/observe/v1", "kind": "query", "depends_on": ["observe-twin-453a9fa"], "eta": "2026-08-16T11:10:00+02:00"},
+        {"id": "plan-www-main-publish", "capability_ref": "capability://subactor.test/git/plan/v1", "kind": "command", "depends_on": ["observe-www-main-gap"], "eta": "2026-08-16T11:30:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.saas-access-request",
+      "process_ref": "poa://subactor.test/process/saas-access-request/v1",
+      "title": "Observe Control saas access request timeout",
+      "steps": [
+        {"id": "observe-timeout", "capability_ref": "capability://subactor.test/http/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T11:30:00+02:00"},
+        {"id": "compare-twin-202", "capability_ref": "capability://subactor.test/http/observe/v1", "kind": "query", "depends_on": ["observe-timeout"], "eta": "2026-08-16T11:40:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.www-sub-actor-17",
+      "process_ref": "poa://subactor.test/process/leave-in-progress-pr/v1",
+      "title": "Observe and leave dirty draft 17",
+      "steps": [
+        {"id": "observe-pr-age", "capability_ref": "capability://subactor.test/github/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T12:00:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.llm-account-hub-32",
+      "process_ref": "poa://subactor.test/process/leave-in-progress-pr/v1",
+      "title": "Observe and leave draft 32",
+      "steps": [
+        {"id": "observe-pr-age", "capability_ref": "capability://subactor.test/github/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T12:05:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.policy-dsl-4",
+      "process_ref": "poa://subactor.test/process/leave-in-progress-pr/v1",
+      "title": "Observe policy-dsl 4 and do not touch",
+      "steps": [
+        {"id": "observe-in-progress", "capability_ref": "capability://subactor.test/github/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T12:10:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.autonomy-36",
+      "process_ref": "poa://subactor.test/process/leave-in-progress-pr/v1",
+      "title": "Observe and leave autonomy 36",
+      "steps": [
+        {"id": "observe-pr-age", "capability_ref": "capability://subactor.test/github/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T12:15:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.validator-hourly",
+      "process_ref": "poa://subactor.test/process/validator-hourly/v1",
+      "title": "Register validator hourly fail",
+      "steps": [
+        {"id": "observe-scan-direct", "capability_ref": "capability://subactor.test/validator/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T14:00:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.doctor-problems-api",
+      "process_ref": "poa://subactor.test/process/doctor-problems-api/v1",
+      "title": "Register doctor problems 404",
+      "steps": [
+        {"id": "observe-404", "capability_ref": "capability://subactor.test/http/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T14:10:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.ingress-18443-tls",
+      "process_ref": "poa://subactor.test/process/ingress-18443-tls/v1",
+      "title": "Observe local 18443 TLS",
+      "steps": [
+        {"id": "observe-18443", "capability_ref": "capability://subactor.test/tls/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T14:20:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.worktree-sprawl",
+      "process_ref": "poa://subactor.test/process/worktree-sprawl/v1",
+      "title": "Observe worktree sprawl without cleanup",
+      "steps": [
+        {"id": "observe-count", "capability_ref": "capability://subactor.test/git/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T14:30:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.ingress-caddy",
+      "process_ref": "poa://subactor.test/process/ingress-caddy/v1",
+      "title": "Internal ingress Caddy health",
+      "steps": [
+        {"id": "observe-health", "capability_ref": "capability://subactor.test/health/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T08:00:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.plesk-twin",
+      "process_ref": "poa://subactor.test/process/plesk-twin/v1",
+      "title": "Internal plesk-twin 8791 health",
+      "steps": [
+        {"id": "observe-8791", "capability_ref": "capability://subactor.test/health/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T08:05:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.mailpit",
+      "process_ref": "poa://subactor.test/process/mailpit/v1",
+      "title": "Internal Mailpit 8026 health",
+      "steps": [
+        {"id": "observe-8026", "capability_ref": "capability://subactor.test/health/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T08:10:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.testql-subactor-local",
+      "process_ref": "poa://subactor.test/process/testql-subactor-local/v1",
+      "title": "Re-run TestQL after OTP publish plan",
+      "steps": [
+        {"id": "run-suite", "capability_ref": "capability://subactor.test/testql/query/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T13:00:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.otp-request-api",
+      "process_ref": "poa://subactor.test/process/otp-request-api/v1",
+      "title": "Internal OTP request API",
+      "steps": [
+        {"id": "observe-request", "capability_ref": "capability://subactor.test/http/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T08:15:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.otp-login-api",
+      "process_ref": "poa://subactor.test/process/otp-login-api/v1",
+      "title": "Internal OTP login API",
+      "steps": [
+        {"id": "observe-login", "capability_ref": "capability://subactor.test/http/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T08:20:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.quota-operations",
+      "process_ref": "poa://subactor.test/process/quota-operations/v1",
+      "title": "Internal purchased-operations quota",
+      "steps": [
+        {"id": "observe-remaining", "capability_ref": "capability://subactor.test/billing/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T08:30:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.quota-twin-nodes",
+      "process_ref": "poa://subactor.test/process/quota-twin-nodes/v1",
+      "title": "Internal twin-node clone quota",
+      "steps": [
+        {"id": "observe-slots", "capability_ref": "capability://subactor.test/billing/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T08:35:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.doctor-hygiene-2h",
+      "process_ref": "poa://subactor.test/process/doctor-hygiene-2h/v1",
+      "title": "Ticketed 2h hygiene scan owned by doctor-agent",
+      "steps": [
+        {"id": "observe-stale", "capability_ref": "capability://subactor.test/github/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T12:00:00+02:00"},
+        {"id": "scan-problems", "capability_ref": "capability://subactor.test/doctor/observe/v1", "kind": "query", "depends_on": ["observe-stale"], "eta": "2026-08-16T12:10:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.if-uri-node-catalog",
+      "process_ref": "poa://subactor.test/process/if-uri-node-catalog/v1",
+      "title": "Query if-uri node catalog for operator view",
+      "steps": [
+        {"id": "list-if-uri-nodes", "capability_ref": "capability://subactor.test/catalog/query/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T08:40:00+02:00"}
+      ]
+    },
+    {
+      "ticket_id": "poa.tkt.twin-local-otp-probe",
+      "process_ref": "poa://subactor.test/process/twin-local-otp-probe/v1",
+      "title": "User-planned twin OTP probe",
+      "steps": [
+        {"id": "open-login", "capability_ref": "capability://subactor.test/twin/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T15:00:00+02:00"},
+        {"id": "request-otp", "capability_ref": "capability://subactor.test/twin/observe/v1", "kind": "query", "depends_on": ["open-login"], "eta": "2026-08-16T15:05:00+02:00"}
+      ]
+    }
+  ],
+  "schedules": [
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.control-origin-unify", "not_before": "2026-08-16T09:00:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 9, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.prod-tls-handshake", "not_before": "2026-08-16T10:00:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 10, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.otp-email-login", "not_before": "2026-08-16T11:00:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 11, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.saas-access-request", "not_before": "2026-08-16T11:30:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 11, "rrule": "", "trigger": "event"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.www-sub-actor-17", "not_before": "2026-08-16T12:00:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 12, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.llm-account-hub-32", "not_before": "2026-08-16T12:05:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 12, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.policy-dsl-4", "not_before": "2026-08-16T12:10:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 12, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.autonomy-36", "not_before": "2026-08-16T12:15:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 12, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.testql-subactor-local", "not_before": "2026-08-16T13:00:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 13, "rrule": "", "trigger": "event"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.doctor-hygiene-2h", "not_before": "2026-08-16T12:00:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 12, "rrule": "FREQ=HOURLY;INTERVAL=2", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.validator-hourly", "not_before": "2026-08-16T14:00:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 14, "rrule": "FREQ=HOURLY;INTERVAL=1", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.doctor-problems-api", "not_before": "2026-08-16T14:10:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 14, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.ingress-18443-tls", "not_before": "2026-08-16T14:20:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 14, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.worktree-sprawl", "not_before": "2026-08-16T14:30:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 14, "rrule": "", "trigger": "clock"},
+    {"schema": "poa.scheduled-ticket/v1", "ticket_id": "poa.tkt.twin-local-otp-probe", "not_before": "2026-08-16T15:00:00+02:00", "timezone": "Europe/Warsaw", "local_hour": 15, "rrule": "", "trigger": "twin_plan"}
+  ],
+  "dependencies": [
+    {"schema": "poa.ticket-dependency/v1", "from_ticket_id": "poa.tkt.control-origin-unify", "to_ticket_id": "poa.tkt.saas-access-request", "type": "happens-after"},
+    {"schema": "poa.ticket-dependency/v1", "from_ticket_id": "poa.tkt.otp-email-login", "to_ticket_id": "poa.tkt.testql-subactor-local", "type": "happens-after"},
+    {"schema": "poa.ticket-dependency/v1", "from_ticket_id": "poa.tkt.otp-email-login", "to_ticket_id": "poa.tkt.twin-local-otp-probe", "type": "happens-after"}
+  ],
+  "triggers": [
+    {"event": "clock.hour.due", "command": "schedule-ticket", "ticket_required": true, "queue": "ops.auth", "ticket_id": "poa.tkt.control-origin-unify"},
+    {"event": "health.probe.failed", "command": "enqueue-task", "ticket_required": true, "queue": "ops.internal", "ticket_id": "poa.tkt.ingress-caddy"},
+    {"event": "control.api.me.unauthorized", "command": "enqueue-task", "ticket_required": true, "queue": "ops.auth", "ticket_id": "poa.tkt.control-origin-unify"},
+    {"event": "otp.send.unavailable", "command": "enqueue-task", "ticket_required": true, "queue": "ops.portal", "ticket_id": "poa.tkt.otp-request-api"},
+    {"event": "saas.access.request.timeout", "command": "enqueue-task", "ticket_required": true, "queue": "ops.auth", "ticket_id": "poa.tkt.saas-access-request"},
+    {"event": "tls.handshake.failed", "command": "enqueue-task", "ticket_required": true, "queue": "ops.tls", "ticket_id": "poa.tkt.prod-tls-handshake"},
+    {"event": "pr.stale.two-hours", "command": "enqueue-task", "ticket_required": true, "queue": "ops.hygiene", "ticket_id": "poa.tkt.doctor-hygiene-2h"},
+    {"event": "testql.suite.failed", "command": "enqueue-task", "ticket_required": true, "queue": "ops.testql", "ticket_id": "poa.tkt.testql-subactor-local"},
+    {"event": "ticket.completed", "command": "enqueue-task", "ticket_required": true, "queue": "ops.auth", "ticket_id": "poa.tkt.saas-access-request"},
+    {"event": "twin.plan.authored", "command": "plan-twin-work", "ticket_required": true, "queue": "ops.twin", "ticket_id": "poa.tkt.twin-local-otp-probe"},
+    {"event": "quota.operations.zero", "command": "consume-operation", "ticket_required": true, "queue": "ops.billing", "ticket_id": "poa.tkt.quota-operations"},
+    {"event": "quota.twin-node.full", "command": "allocate-twin-node", "ticket_required": true, "queue": "ops.billing", "ticket_id": "poa.tkt.quota-twin-nodes"}
+  ],
+  "twin_plans": [
+    {
+      "schema": "poa.digital-twin-plan/v1",
+      "plan_id": "twin.plan.otp-probe",
+      "ticket_id": "poa.tkt.twin-local-otp-probe",
+      "actor": "human:founder",
+      "steps": [
+        {"id": "open-login", "capability_ref": "capability://subactor.test/twin/observe/v1", "kind": "query", "depends_on": [], "eta": "2026-08-16T15:00:00+02:00"},
+        {"id": "request-otp", "capability_ref": "capability://subactor.test/twin/observe/v1", "kind": "query", "depends_on": ["open-login"], "eta": "2026-08-16T15:05:00+02:00"}
+      ],
+      "timezone": "Europe/Warsaw",
+      "not_before": "2026-08-16T15:00:00+02:00"
+    }
+  ]
+}

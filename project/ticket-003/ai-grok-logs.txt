@@ -1,0 +1,67 @@
+{
+  "adversarial_rejections": 3,
+  "events": [
+    "TaskQueued",
+    "TicketDue",
+    "TicketDue",
+    "TicketDue",
+    "TicketDue",
+    "ProcessStepConsumedOperation",
+    "OperationsQuotaExhausted",
+    "TwinNodeQuotaExhausted",
+    "DigitalTwinPlanRegistered"
+  ],
+  "ok": true,
+  "runtime_owner": "subactor",
+  "seed_tickets": 23,
+  "triggers": 12
+}
+{
+  "checks": {
+    "adversarial_rejections": 18,
+    "capability_to_uri_binding": true,
+    "closed_json_schema": true,
+    "contract_integrity": true,
+    "execution_envelope_binding": true,
+    "fresh_observation_contract": true,
+    "gbnf_intersection": true,
+    "lease_and_terminal_events": true,
+    "plan_hash_binding": true,
+    "process_dag": true,
+    "receipt_hash_binding": true,
+    "rfc8785_sha256_profile": true,
+    "secret_free_receipt": true,
+    "ticket_queue": {
+      "adversarial_rejections": 3,
+      "events": [
+        "TaskQueued",
+        "TicketDue",
+        "TicketDue",
+        "TicketDue",
+        "TicketDue",
+        "ProcessStepConsumedOperation",
+        "OperationsQuotaExhausted",
+        "TwinNodeQuotaExhausted",
+        "DigitalTwinPlanRegistered"
+      ],
+      "ok": true,
+      "runtime_owner": "subactor",
+      "seed_tickets": 23,
+      "triggers": 12
+    },
+    "typed_binding_contract": true
+  },
+  "examples": {
+    "binding_id": "binding:example:review:001",
+    "event_type": "lease_renewed",
+    "execution_id": "run:example:001",
+    "inspect_operation": "inspect",
+    "observation_id": "observation:example:001",
+    "plan_ref": "sha256:243f69ae4cc68166f865af65c52b91d9f6144c8bcf231214a891720e29c27d61",
+    "process_ref": "poa://example.test/process/release-review/v1",
+    "receipt_hash": "169b27f4f20d12ed4ee4b1cb0ed8fac03705f384f141d2189f7510a4b738687a",
+    "request_operation": "plan"
+  },
+  "ok": true,
+  "schema": "poa.conformance-report/v1"
+}

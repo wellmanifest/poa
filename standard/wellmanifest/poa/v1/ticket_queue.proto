@@ -1,0 +1,264 @@
+syntax = "proto3";
+
+package wellmanifest.poa.v1;
+
+// Ticketed process-queue contract. This file is a closed document family, not
+// a daemon. RuntimeOwner is subactor (planfile / doctor-agent / control).
+// HOME remains wellmanifest/poa. Enqueue without a registered ticket_id is
+// invalid. Operation consume is valid only when bound to ticket + process step.
+
+option java_multiple_files = true;
+option java_package = "org.wellmanifest.poa.v1";
+
+enum TicketStatus {
+  TICKET_STATUS_UNSPECIFIED = 0;
+  TICKET_STATUS_OPEN = 1;
+  TICKET_STATUS_SCHEDULED = 2;
+  TICKET_STATUS_READY = 3;
+  TICKET_STATUS_RUNNING = 4;
+  TICKET_STATUS_BLOCKED_DEPENDENCY = 5;
+  TICKET_STATUS_BLOCKED_QUOTA = 6;
+  TICKET_STATUS_COMPLETED = 7;
+  TICKET_STATUS_FAILED = 8;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_QUEUED = 1;
+  TASK_STATUS_STARTED = 2;
+  TASK_STATUS_COMPLETED = 3;
+  TASK_STATUS_REJECTED = 4;
+}
+
+enum TriggerKind {
+  TRIGGER_KIND_UNSPECIFIED = 0;
+  TRIGGER_KIND_CLOCK = 1;
+  TRIGGER_KIND_EVENT = 2;
+  TRIGGER_KIND_TWIN_PLAN = 3;
+}
+
+enum DependencyType {
+  DEPENDENCY_TYPE_UNSPECIFIED = 0;
+  DEPENDENCY_TYPE_HAPPENS_AFTER = 1;
+}
+
+enum QuotaPlan {
+  QUOTA_PLAN_UNSPECIFIED = 0;
+  QUOTA_PLAN_BASIC = 1;
+  QUOTA_PLAN_ACTIONS_PLUS = 2;
+}
+
+enum StepKind {
+  STEP_KIND_UNSPECIFIED = 0;
+  STEP_KIND_QUERY = 1;
+  STEP_KIND_COMMAND = 2;
+}
+
+// Inspectable registered ticket. A queue job without this record is invalid.
+message Ticket {
+  string schema = 1;
+  string ticket_id = 2;
+  string name = 3;
+  TicketStatus status = 4;
+  string queue = 5;
+  string process_ref = 6;
+  string actor = 7;
+  bool inspectable = 8;
+  string runtime_owner = 9;
+}
+
+// A task is invalid unless ticket_id names a registered, inspectable ticket.
+message Task {
+  string schema = 1;
+  string task_id = 2;
+  string ticket_id = 3;
+  string queue = 4;
+  string process_step_id = 5;
+  string actor = 6;
+  TaskStatus status = 7;
+}
+
+message ProcessQueueStep {
+  string id = 1;
+  string capability_ref = 2;
+  StepKind kind = 3;
+  repeated string depends_on = 4;
+  string eta = 5;
+}
+
+message ProcessDefinition {
+  string schema = 1;
+  string process_ref = 2;
+  string title = 3;
+  string owner = 4;
+  repeated ProcessQueueStep steps = 5;
+}
+
+message ScheduledTicket {
+  string schema = 1;
+  string ticket_id = 2;
+  string not_before = 3;
+  string timezone = 4;
+  uint32 local_hour = 5;
+  string rrule = 6;
+  TriggerKind trigger = 7;
+}
+
+message TicketDependency {
+  string schema = 1;
+  string from_ticket_id = 2;
+  string to_ticket_id = 3;
+  DependencyType type = 4;
+}
+
+message DigitalTwinPlan {
+  string schema = 1;
+  string plan_id = 2;
+  string ticket_id = 3;
+  string actor = 4;
+  repeated ProcessQueueStep steps = 5;
+  string timezone = 6;
+  string not_before = 7;
+}
+
+message AccountQuota {
+  string schema = 1;
+  string account_id = 2;
+  uint32 operations_remaining = 3;
+  string operations_period = 4;
+  uint32 operations_allowance = 5;
+  QuotaPlan plan = 6;
+  uint32 twin_nodes_allowed = 7;
+  uint32 twin_clones_in_use = 8;
+}
+
+message IfUriNodeRef {
+  string type_id = 1;
+  string label = 2;
+  string catalog = 3;
+}
+
+message IfUriNodeCatalog {
+  string schema = 1;
+  string catalog_id = 2;
+  string label = 3;
+  string source_uri = 4;
+  string source_doc = 5;
+  repeated IfUriNodeRef types = 6;
+}
+
+message ProcessQueueView {
+  string schema = 1;
+  Ticket ticket = 2;
+  repeated ProcessQueueStep steps = 3;
+  ScheduledTicket schedule = 4;
+  repeated TicketDependency dependencies = 5;
+  string trigger = 6;
+  string eta = 7;
+  AccountQuota quota = 8;
+}
+
+message OperatorNodeView {
+  string schema = 1;
+  repeated string twin_clones = 2;
+  IfUriNodeCatalog if_uri_catalog = 3;
+  string twin_label = 4;
+  string if_uri_label = 5;
+}
+
+message EventTrigger {
+  string event = 1;
+  string command = 2;
+  bool ticket_required = 3;
+  string queue = 4;
+  string ticket_id = 5;
+}
+
+message DomainEvent {
+  string schema = 1;
+  string event_id = 2;
+  string event_type = 3;
+  string ticket_id = 4;
+  string occurred_at = 5;
+  uint64 sequence = 6;
+  string causation_id = 7;
+  bool raw_output_included = 8;
+  bool secret_material_included = 9;
+}
+
+message EnqueueTask {
+  string schema = 1;
+  Task task = 2;
+}
+
+message RegisterInternalProcess {
+  string schema = 1;
+  Ticket ticket = 2;
+  ProcessDefinition process = 3;
+}
+
+message ScheduleTicket {
+  string schema = 1;
+  ScheduledTicket scheduled = 2;
+  repeated TicketDependency dependencies = 3;
+}
+
+message PlanTwinWork {
+  string schema = 1;
+  DigitalTwinPlan plan = 2;
+}
+
+message ConsumeOperation {
+  string schema = 1;
+  string ticket_id = 2;
+  string process_step_id = 3;
+  string account_id = 4;
+}
+
+message AllocateTwinNode {
+  string schema = 1;
+  string ticket_id = 2;
+  string account_id = 3;
+  string node_ref = 4;
+}
+
+message GetTicketWithProcessQueue {
+  string schema = 1;
+  string ticket_id = 2;
+}
+
+message GetProcessQueueView {
+  string schema = 1;
+  string ticket_id = 2;
+}
+
+message ListIfUriNodes {
+  string schema = 1;
+  string catalog_ref = 2;
+}
+
+message GetAccountQuota {
+  string schema = 1;
+  string account_id = 2;
+}
+
+message GetOperatorNodeView {
+  string schema = 1;
+}
+
+service TicketQueueCommands {
+  rpc EnqueueTask(EnqueueTask) returns (DomainEvent);
+  rpc RegisterInternalProcess(RegisterInternalProcess) returns (DomainEvent);
+  rpc ScheduleTicket(ScheduleTicket) returns (DomainEvent);
+  rpc PlanTwinWork(PlanTwinWork) returns (DomainEvent);
+  rpc ConsumeOperation(ConsumeOperation) returns (DomainEvent);
+  rpc AllocateTwinNode(AllocateTwinNode) returns (DomainEvent);
+}
+
+service TicketQueueQueries {
+  rpc GetTicketWithProcessQueue(GetTicketWithProcessQueue) returns (ProcessQueueView);
+  rpc GetProcessQueueView(GetProcessQueueView) returns (ProcessQueueView);
+  rpc ListIfUriNodes(ListIfUriNodes) returns (IfUriNodeCatalog);
+  rpc GetAccountQuota(GetAccountQuota) returns (AccountQuota);
+  rpc GetOperatorNodeView(GetOperatorNodeView) returns (OperatorNodeView);
+}
