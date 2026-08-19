@@ -1,0 +1,403 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wellmanifest.dev/schemas/poa/ticket-queue.schema.v1.json",
+  "title": "POA ticketed process-queue, schedule, quota and view contracts v1",
+  "description": "Closed CQRS+ES family. A task without a registered inspectable ticket_id is invalid. This document never grants execution authority and is not a daemon.",
+  "oneOf": [
+    {"$ref": "#/$defs/seed"},
+    {"$ref": "#/$defs/ticket"},
+    {"$ref": "#/$defs/task"},
+    {"$ref": "#/$defs/scheduledTicket"},
+    {"$ref": "#/$defs/ticketDependency"},
+    {"$ref": "#/$defs/digitalTwinPlan"},
+    {"$ref": "#/$defs/accountQuota"},
+    {"$ref": "#/$defs/processQueueView"},
+    {"$ref": "#/$defs/operatorNodeView"},
+    {"$ref": "#/$defs/eventTrigger"},
+    {"$ref": "#/$defs/domainEvent"}
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[a-z][a-z0-9._:-]*$"
+    },
+    "actor": {
+      "type": "string",
+      "maxLength": 160,
+      "pattern": "^(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+$"
+    },
+    "rfc3339": {
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z][A-Za-z0-9_/+-]*$"
+    },
+    "processRef": {
+      "type": "string",
+      "maxLength": 240,
+      "pattern": "^poa://[a-z0-9.-]+/process/[a-z][a-z0-9._:-]*/v[1-9][0-9]*$"
+    },
+    "ticketStatus": {
+      "enum": [
+        "open",
+        "scheduled",
+        "ready",
+        "running",
+        "blocked_dependency",
+        "blocked_quota",
+        "completed",
+        "failed"
+      ]
+    },
+    "priority": {"enum": ["P0", "P1", "P2", "P3"]},
+    "triggerKind": {"enum": ["clock", "event", "twin_plan"]},
+    "processStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "capability_ref", "kind", "depends_on", "eta"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "capability_ref": {"type": "string", "minLength": 1, "maxLength": 240},
+        "kind": {"enum": ["query", "command"]},
+        "depends_on": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "eta": {"$ref": "#/$defs/rfc3339"}
+      }
+    },
+    "ticket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "ticket_id",
+        "name",
+        "status",
+        "queue",
+        "process_ref",
+        "actor",
+        "inspectable",
+        "runtime_owner",
+        "priority"
+      ],
+      "properties": {
+        "schema": {"const": "poa.ticket/v1"},
+        "ticket_id": {"$ref": "#/$defs/identifier"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 160},
+        "status": {"$ref": "#/$defs/ticketStatus"},
+        "queue": {"$ref": "#/$defs/identifier"},
+        "process_ref": {"$ref": "#/$defs/processRef"},
+        "actor": {"$ref": "#/$defs/actor"},
+        "inspectable": {"const": true},
+        "runtime_owner": {"const": "subactor"},
+        "priority": {"$ref": "#/$defs/priority"}
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "task_id", "ticket_id", "queue", "process_step_id", "actor", "status"],
+      "properties": {
+        "schema": {"const": "poa.task/v1"},
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "ticket_id": {"$ref": "#/$defs/identifier"},
+        "queue": {"$ref": "#/$defs/identifier"},
+        "process_step_id": {"$ref": "#/$defs/identifier"},
+        "actor": {"$ref": "#/$defs/actor"},
+        "status": {"enum": ["queued", "started", "completed", "rejected"]}
+      }
+    },
+    "scheduledTicket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "ticket_id", "not_before", "timezone", "local_hour", "rrule", "trigger"],
+      "properties": {
+        "schema": {"const": "poa.scheduled-ticket/v1"},
+        "ticket_id": {"$ref": "#/$defs/identifier"},
+        "not_before": {"$ref": "#/$defs/rfc3339"},
+        "timezone": {"$ref": "#/$defs/timezone"},
+        "local_hour": {"type": "integer", "minimum": 0, "maximum": 23},
+        "rrule": {"type": "string", "maxLength": 160, "pattern": "^(?:|FREQ=[A-Z]+;INTERVAL=[1-9][0-9]*)$"},
+        "trigger": {"$ref": "#/$defs/triggerKind"}
+      }
+    },
+    "ticketDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "from_ticket_id", "to_ticket_id", "type"],
+      "properties": {
+        "schema": {"const": "poa.ticket-dependency/v1"},
+        "from_ticket_id": {"$ref": "#/$defs/identifier"},
+        "to_ticket_id": {"$ref": "#/$defs/identifier"},
+        "type": {"const": "happens-after"}
+      }
+    },
+    "digitalTwinPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "plan_id", "ticket_id", "actor", "steps", "timezone", "not_before"],
+      "properties": {
+        "schema": {"const": "poa.digital-twin-plan/v1"},
+        "plan_id": {"$ref": "#/$defs/identifier"},
+        "ticket_id": {"$ref": "#/$defs/identifier"},
+        "actor": {"$ref": "#/$defs/actor"},
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/processStep"}
+        },
+        "timezone": {"$ref": "#/$defs/timezone"},
+        "not_before": {"$ref": "#/$defs/rfc3339"}
+      }
+    },
+    "accountQuota": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "account_id",
+        "operations_remaining",
+        "operations_period",
+        "operations_allowance",
+        "plan",
+        "twin_nodes_allowed",
+        "twin_clones_in_use"
+      ],
+      "properties": {
+        "schema": {"const": "poa.account-quota/v1"},
+        "account_id": {"$ref": "#/$defs/identifier"},
+        "operations_remaining": {"type": "integer", "minimum": 0, "maximum": 100000},
+        "operations_period": {"const": "month"},
+        "operations_allowance": {"type": "integer", "minimum": 1, "maximum": 100000},
+        "plan": {"enum": ["basic", "actions_plus"]},
+        "twin_nodes_allowed": {"type": "integer", "minimum": 0, "maximum": 256},
+        "twin_clones_in_use": {"type": "integer", "minimum": 0, "maximum": 256}
+      }
+    },
+    "ifUriNodeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type_id", "label", "catalog"],
+      "properties": {
+        "type_id": {"$ref": "#/$defs/identifier"},
+        "label": {"type": "string", "minLength": 1, "maxLength": 64},
+        "catalog": {"const": "if-uri"}
+      }
+    },
+    "ifUriNodeCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "catalog_id", "label", "source_uri", "source_doc", "types"],
+      "properties": {
+        "schema": {"const": "poa.if-uri-node-catalog/v1"},
+        "catalog_id": {"const": "if-uri"},
+        "label": {"const": "Nody (if-uri)"},
+        "source_uri": {"type": "string", "minLength": 8, "maxLength": 320},
+        "source_doc": {"type": "string", "minLength": 8, "maxLength": 320},
+        "types": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/ifUriNodeRef"}
+        }
+      }
+    },
+    "processQueueView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "ticket", "steps", "schedule", "dependencies", "trigger", "eta", "quota"],
+      "properties": {
+        "schema": {"const": "poa.process-queue-view/v1"},
+        "ticket": {"$ref": "#/$defs/ticket"},
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/processStep"}
+        },
+        "schedule": {"$ref": "#/$defs/scheduledTicket"},
+        "dependencies": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/ticketDependency"}
+        },
+        "trigger": {"$ref": "#/$defs/triggerKind"},
+        "eta": {"$ref": "#/$defs/rfc3339"},
+        "quota": {"$ref": "#/$defs/accountQuota"}
+      }
+    },
+    "operatorNodeView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "twin_clones", "if_uri_catalog", "twin_label", "if_uri_label"],
+      "properties": {
+        "schema": {"const": "poa.operator-node-view/v1"},
+        "twin_clones": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 96}
+        },
+        "if_uri_catalog": {"$ref": "#/$defs/ifUriNodeCatalog"},
+        "twin_label": {"const": "Zakupione klony digital twin"},
+        "if_uri_label": {"const": "Nody (if-uri)"}
+      }
+    },
+    "eventTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event", "command", "ticket_required", "queue", "ticket_id"],
+      "properties": {
+        "event": {"$ref": "#/$defs/identifier"},
+        "command": {"$ref": "#/$defs/identifier"},
+        "ticket_required": {"const": true},
+        "queue": {"$ref": "#/$defs/identifier"},
+        "ticket_id": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "domainEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "event_id",
+        "event_type",
+        "ticket_id",
+        "occurred_at",
+        "sequence",
+        "causation_id",
+        "raw_output_included",
+        "secret_material_included"
+      ],
+      "properties": {
+        "schema": {"const": "poa.ticket-event/v1"},
+        "event_id": {"$ref": "#/$defs/identifier"},
+        "event_type": {
+          "enum": [
+            "TicketOpened",
+            "ProcessRegistered",
+            "TaskQueued",
+            "TaskStarted",
+            "TaskCompleted",
+            "EnqueueRejected",
+            "TicketScheduled",
+            "TicketDue",
+            "DigitalTwinPlanRegistered",
+            "ProcessStepConsumedOperation",
+            "OperationsQuotaExhausted",
+            "TwinNodeAllocated",
+            "TwinNodeQuotaExhausted"
+          ]
+        },
+        "ticket_id": {"$ref": "#/$defs/identifier"},
+        "occurred_at": {"$ref": "#/$defs/rfc3339"},
+        "sequence": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+        "causation_id": {"type": "string", "minLength": 1, "maxLength": 96},
+        "raw_output_included": {"const": false},
+        "secret_material_included": {"const": false}
+      }
+    },
+    "seed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "observed_at",
+        "timezone",
+        "runtime_owner",
+        "home",
+        "do_not_execute",
+        "do_not_touch",
+        "completed_not_tickets",
+        "account_quota",
+        "if_uri_catalog",
+        "tickets",
+        "processes",
+        "schedules",
+        "dependencies",
+        "triggers",
+        "twin_plans"
+      ],
+      "properties": {
+        "schema": {"const": "poa.ticket-queue-seed/v1"},
+        "observed_at": {"$ref": "#/$defs/rfc3339"},
+        "timezone": {"$ref": "#/$defs/timezone"},
+        "runtime_owner": {"const": "subactor"},
+        "home": {"const": "wellmanifest"},
+        "do_not_execute": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1, "maxLength": 160}
+        },
+        "do_not_touch": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1, "maxLength": 160}
+        },
+        "completed_not_tickets": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 160}
+        },
+        "account_quota": {"$ref": "#/$defs/accountQuota"},
+        "if_uri_catalog": {"$ref": "#/$defs/ifUriNodeCatalog"},
+        "tickets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {"$ref": "#/$defs/ticket"}
+        },
+        "processes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ticket_id", "process_ref", "title", "steps"],
+            "properties": {
+              "ticket_id": {"$ref": "#/$defs/identifier"},
+              "process_ref": {"$ref": "#/$defs/processRef"},
+              "title": {"type": "string", "minLength": 1, "maxLength": 160},
+              "steps": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {"$ref": "#/$defs/processStep"}
+              }
+            }
+          }
+        },
+        "schedules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/scheduledTicket"}
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/ticketDependency"}
+        },
+        "triggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/eventTrigger"}
+        },
+        "twin_plans": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/digitalTwinPlan"}
+        }
+      }
+    }
+  }
+}
