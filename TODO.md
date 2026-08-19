@@ -14,3 +14,6 @@
 - [x] Validate the isolated Docker test environment and scoped governance files.
 - [x] Publish the validated ticket branch and obtain trusted exact-head review
   through its pull request.
+- [ ] Ticketed process-queue CQRS/ES pack in `project/ticket-003/`; state:
+  `IN_PROGRESS / EDIT`; classification: `FEATURE / P1 / requested`;
+  workstream: `integration`. Seed is the 2026-08-15 system analysis. No PR.
