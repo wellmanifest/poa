@@ -3,7 +3,7 @@
 - **ID**: ticket-004
 - **Owner**: unresolved:human
 - **Status**: IN_PROGRESS
-- **Workflow state**: PLAN
+- **Workflow state**: PUBLICATION
 - **Created**: 2026-08-25
 
 ## Goal and scope
@@ -30,20 +30,38 @@ direct-main push, self-approval, merge, runtime deployment or secret access.
 
 - [x] AC-01: The user's execution and continuation requests authorize the
       bounded standard and its ticket-branch publication.
-- [ ] AC-02: Closed v2 queue plan and start documents bind ticket, queue
+- [x] AC-02: Closed v2 queue plan and start documents bind ticket, queue
       revision, exact URI processes, rollback semantics and canonical plan hash.
-- [ ] AC-03: Admission is a separate closed decision and the reference adapter
+- [x] AC-03: Admission is a separate closed decision and the reference adapter
       rejects stale revision/hash, proposer/admitter and admitter/executor
       identity collapse, and irreversible work without exact higher authority.
-- [ ] AC-04: Rejection preserves the ticket, prevents start and permits only a
+- [x] AC-04: Rejection preserves the ticket, prevents start and permits only a
       higher-revision replacement plan under that same ticket.
-- [ ] AC-05: A read-only view exposes the current plan, admission and queue
+- [x] AC-05: A read-only view exposes the current plan, admission and queue
       state without creating authority or events.
-- [ ] AC-06: Architecture guidance explains URI Processes as delegated logical
+- [x] AC-06: Architecture guidance explains URI Processes as delegated logical
       resources, analogous to resource/process identifiers in mobile operating
       systems, while making clear that URI resolution itself grants nothing.
-- [ ] AC-07: Positive and adversarial conformance, networkless Docker and
+- [x] AC-07: Positive and adversarial conformance, networkless Docker and
       repository governance pass before publication.
+
+## Validation evidence
+
+- `python3 standard/ticket_queue.py`: passed; 11 adversarial queue rejections,
+  rejected revision 1 replaced by admitted/running revision 2 in the same
+  `poa.tkt.ingress-caddy` ticket.
+- `python3 standard/conformance.py --all`: passed; existing POA v1 checks remain
+  green and the v2 admission projection reports the exact revision and hash.
+- Draft 2020-12 validation accepted representative plan, admission and replan
+  documents; adapter conformance separately rejected a replan whose embedded
+  plan hash was not recomputed.
+- `docker compose run --rm --build conformance`: rebuilt the exact source and
+  passed in the isolated container.
+- `./project/governance-check.sh --actor agent`: passed with zero errors and
+  zero warnings.
+- Plan-only PR #7 was independently approved and merged as `474f0b1`; this
+  implementation branch is based on that exact commit, so the intent exists
+  before every implementation change as required by `GOV-INTENT-003`.
 
 ## Participants
 
