@@ -18,7 +18,7 @@
   `DONE / DONE`; classification: `FEATURE / P1 / requested`; workstream:
   `integration`. Published through merged PR #5.
 - [ ] Revision-bound queue admission in `project/ticket-004/`; state:
-  `IN_PROGRESS / PLAN`; classification: `FEATURE / P1 / requested`;
+  `IN_PROGRESS / PUBLICATION`; classification: `FEATURE / P1 / requested`;
   workstream: `integration`. Require ticket, current queue revision, exact plan
   hash, independent admission, same-ticket replan and higher authority for
   irreversible effects before an executor starts a URI Process.

@@ -26,6 +26,17 @@ stale or rejected plan to reach an executor and makes replan behavior implicit.
 
 - Initialized the bounded ticket and recorded SESSION_EXECUTION_AUTHORIZATION
   from the request to execute this work.
+- Added additive v2 JSON Schema and protobuf contracts for exact URI Process
+  plans, independent admission, same-ticket replacement, exact start commands
+  and read-only views.
+- Added canonical queue hashing and deterministic reference checks for current
+  revision, ticket identity, DAG validity, role separation and authority.
+- Made `rollback=none` require an exact higher-authority grant and made
+  compensating rollback name its own exact URI Process.
+- Added 11 adversarial queue rejections and a positive reject/replan/admit/start
+  sequence while retaining the complete v1 conformance suite.
+- Documented the OS-style identifier/delegation analogy and the normative
+  admission flow without assigning authority to a URI or transport.
 
 ## Blockers
 

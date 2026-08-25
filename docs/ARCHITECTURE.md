@@ -196,7 +196,55 @@ the immutable request and plan, grant, intent, subject, idempotency key and a
 monotonic lease revision. Lease renewal creates a new event; it does not mutate
 or extend the original plan or grant beyond their validity.
 
-### 3.7 Verification and receipt
+### 3.7 Ticketed queue admission
+
+URI Processes are logical resource and process identifiers. They are analogous
+to application, process and resource identifiers used by Android or Apple
+operating systems: an identifier lets policy name the exact resource and lets a
+runtime delegate a bounded capability to it. The identifier is not the process,
+does not prove that a process is running and grants no permission by itself.
+Unlike a manual mobile permission dialog, Subactor may satisfy routine policy
+through an authorized Digital Twin; an irreversible effect still requires a
+higher authority bound to the exact effect and plan.
+
+`POA-QUEUE-006` — Every executable queue plan MUST name one existing,
+inspectable `ticket_id`, a monotonic `queue_revision`, exact `process_uri`
+values for all steps and a canonical `plan_hash`. Shell, REST, Web and MCP MUST
+project the same queue document rather than creating transport-specific work.
+
+`POA-ADMISSION-001` — Before the first executor effect, a separate admission
+decision MUST bind the same ticket, current queue revision and exact plan hash.
+The admitter MUST be independent of both the proposer and executor. Schema
+validity, successful planning, LLM output and URI resolution are inputs to this
+decision, never substitutes for it.
+
+`POA-ADMISSION-002` — An accepted admission is valid only for the exact bytes it
+names. A changed step, URI, dependency, rollback mode, grant, revision or hash
+invalidates it. The executor MUST re-read current queue state immediately before
+start and reject a stale or superseded admission.
+
+`POA-REPLAN-001` — A rejected plan MUST NOT execute. The orchestrator MUST keep
+the original ticket, replace the planned processes with a higher queue revision
+and obtain a new admission. It MUST NOT hide rejection by minting a new ticket,
+mutating the rejected revision or sending detailed worker instructions around
+the queue boundary.
+
+`POA-ROLLBACK-001` — Every command step MUST declare `automatic`,
+`compensating` or `none`. `compensating` MUST name an exact compensating URI
+Process. `none` is irreversible and MUST carry a higher-authority grant bound to
+the exact plan; absence of a rollback path is the mandatory escalation signal.
+
+```mermaid
+flowchart LR
+    Q[Ticket + visible queue revision] --> P[Canonical URI Process plan + hash]
+    P --> A{Independent admission}
+    A -->|accept exact revision/hash| X[Bounded executor]
+    A -->|reject| R[Same-ticket replan]
+    R -->|revision + 1, new hash| A
+    X --> V[Receipt + independent read-back]
+```
+
+### 3.8 Verification and receipt
 
 `POA-VERIFY-001` — Dispatch success is not effect success. Every step MUST
 declare at least one read-back verification capability and expectation schema.
@@ -229,6 +277,12 @@ The machine contract is `standard/poa-process.schema.v1.json`.
 | `poa.execution-envelope/v1` | authority boundary | exact dispatch binding and lease | bounded dispatch input |
 | `poa.event/v1` | executor/control | ordered lifecycle and lease facts | historical evidence only |
 | `poa.receipt/v1` | trusted executor/verifier | immutable execution and effect evidence | historical evidence only |
+| `poa.queue-plan/v2` | orchestrator | ticket/revision-bound URI Process queue | none |
+| `poa.queue-admission/v2` | independent admission gate | accept or reject exact queue bytes | bounded start prerequisite |
+| `poa.queue-replan/v2` | orchestrator | replace one rejected revision under the same ticket | none |
+| `poa.queue-start/v2` | bounded executor | start only the exact admitted revision/hash | bounded execution command |
+| `poa.queue-admission-view/v2` | CQRS projection | inspect current plan, admission and state | evidence only |
+| `poa.queue-admission-event/v2` | orchestrator/admission/executor | revision/hash-bound lifecycle fact | historical evidence only |
 
 The process definition deliberately has no concrete connector URI. The plan
 deliberately has no credential and no generic payload. The receipt deliberately
@@ -293,6 +347,9 @@ A conforming implementation fails closed when:
 - observed target facts are stale or unknown for a safety decision;
 - dry-run, plan hash, grant, intent, target or subject does not match;
 - a plan expired or was already consumed;
+- queue admission is absent, rejected, stale, self-issued or bound to another
+  ticket, revision or plan hash;
+- an irreversible queue step lacks a higher-authority grant for the exact plan;
 - output verification fails.
 
 Cancellation, timeout, denial and expiry are terminal outcomes, not generic

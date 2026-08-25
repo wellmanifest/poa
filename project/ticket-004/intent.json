@@ -23,7 +23,7 @@
   "conflictsWith": [],
   "integrationTicket": null,
   "delivery": {
-    "acceptedBaseSha": "03c2963831f0bc7c4861315d73c980cabf418b7e",
+    "acceptedBaseSha": "474f0b1db025b6f35a8c5b5c6e39c51a7de76f30",
     "targetBranch": "main",
     "outcome": "A closed POA v2 queue-admission contract and reference conformance require one existing ticket, current queue revision, exact plan hash, independent admission, same-ticket replan after rejection and higher authority for irreversible effects before an exact start command can launch any URI Process.",
     "nonGoals": [
