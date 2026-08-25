@@ -1,0 +1,11 @@
+2026-08-25T16:20:00+02:00 SCOPE: recorded SESSION_EXECUTION_AUTHORIZATION and additive v2 contract scope on protected base 03c2963831f0bc7c4861315d73c980cabf418b7e.
+2026-08-25T16:28:00+02:00 CONTRACT: added closed queue plan, admission, same-ticket replan and CQRS view schemas plus protobuf service boundaries.
+2026-08-25T16:31:00+02:00 CONFORMANCE: python3 standard/ticket_queue.py passed with 11 adversarial rejections and exact revision-2 running-state readback.
+2026-08-25T16:31:00+02:00 CONFORMANCE: python3 standard/conformance.py --all passed; all existing POA v1 checks remain green.
+2026-08-25T16:32:00+02:00 SCHEMA: Draft 2020-12 validator accepted representative v2 plan, admission and replan documents; adapter hash binding remains an independent semantic gate.
+2026-08-25T16:33:00+02:00 DOCKER: docker compose run --rm conformance passed in the isolated container.
+2026-08-25T16:36:00+02:00 VALIDATION: representative plan, admission, replan, view and event documents passed Draft 2020-12 validation; local adapter and full POA conformance passed after adding the explicit RFC8785+SHA-256 profile.
+2026-08-25T16:37:00+02:00 DOCKER: docker compose run --rm --build conformance rebuilt the exact source and passed with queue revision 2, exact plan hash 45281241899d3b11d214e5ebd06adc9848df5ccd310ac5f4f97490bccc4e2083 and running-state readback.
+2026-08-25T16:37:00+02:00 GOVERNANCE: ./project/governance-check.sh --actor agent passed with 0 errors and 0 warnings; JSON and git diff checks passed.
+2026-08-25T16:40:00+02:00 HARDENING: added the closed poa.queue-start/v2 command and protobuf RPC so the executor receives ticket, current revision, exact admitted hash and its independent actor identity through a schema-enforced boundary.
+2026-08-25T16:42:00+02:00 FINAL VALIDATION: 8 representative v2 document variants passed Draft 2020-12 validation; docker compose run --rm --build conformance rebuilt and passed the exact source; governance remained 0 errors and 0 warnings.
