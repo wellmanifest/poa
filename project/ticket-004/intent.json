@@ -1,0 +1,85 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-004",
+  "summary": "Gate ticket process queues with revision-bound admission",
+  "workstream": "integration",
+  "classification": {
+    "kind": "FEATURE",
+    "priority": "P1",
+    "origin": "requested"
+  },
+  "allowedPaths": [
+    "project/ticket-004/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "docs/ARCHITECTURE.md",
+    "standard/ticket-queue.schema.v2.json",
+    "standard/ticket_queue.py",
+    "standard/wellmanifest/poa/v2/ticket_queue.proto"
+  ],
+  "forbiddenPaths": ["project/ticket-*/user-*.md"],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "03c2963831f0bc7c4861315d73c980cabf418b7e",
+    "targetBranch": "main",
+    "outcome": "A closed POA v2 queue-admission contract and reference conformance require one existing ticket, current queue revision, exact plan hash, independent admission, same-ticket replan after rejection and higher authority for irreversible effects before an exact start command can launch any URI Process.",
+    "nonGoals": [
+      "Do not implement or deploy a scheduler daemon in Wellmanifest",
+      "Do not grant authority to a URI, transport, LLM, MCP session or schema",
+      "Do not bypass an admission rejection or execute stale plan bytes",
+      "Do not mutate Subactor runtime repositories in this ticket",
+      "Do not merge or self-approve the publication"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Publish additive v2 queue-plan, admission, replan and view documents rather than changing closed v1 objects; keep the adapter deterministic and make Subactor responsible for runtime adoption.",
+      "components": [
+        {
+          "name": "queue-admission-contract",
+          "paths": [
+            "standard/ticket-queue.schema.v2.json",
+            "standard/wellmanifest/poa/v2/ticket_queue.proto"
+          ]
+        },
+        {
+          "name": "queue-admission-conformance",
+          "paths": [
+            "standard/ticket_queue.py",
+            "docs/ARCHITECTURE.md"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [
+        "Add the poa.queue-plan/v2, poa.queue-admission/v2, poa.queue-replan/v2, poa.queue-start/v2 and poa.queue-admission-view/v2 document family"
+      ],
+      "ui": {"impact": "none", "states": [], "evidence": []},
+      "rollback": "Revert the additive v2 files and adapter changes; immutable v1 queue and process contracts remain available."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-03",
+        "commands": ["python3 standard/ticket_queue.py"],
+        "evidence": "project/ticket-004/ai-codex-logs.txt"
+      },
+      {
+        "criterion": "AC-07",
+        "commands": ["python3 standard/conformance.py --all", "docker compose run --rm conformance", "./project/governance-check.sh --actor agent"],
+        "evidence": "project/ticket-004/ai-codex-logs.txt"
+      }
+    ]
+  }
+}
