@@ -1,0 +1,1 @@
+2026-08-25T16:20:00+02:00 SCOPE: recorded SESSION_EXECUTION_AUTHORIZATION and additive v2 contract scope on protected base 03c2963831f0bc7c4861315d73c980cabf418b7e.
