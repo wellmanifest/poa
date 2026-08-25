@@ -17,8 +17,9 @@
 - [x] Ticketed process-queue CQRS/ES pack in `project/ticket-003/`; state:
   `DONE / DONE`; classification: `FEATURE / P1 / requested`; workstream:
   `integration`. Published through merged PR #5.
-- [ ] Revision-bound queue admission in `project/ticket-004/`; state:
-  `IN_PROGRESS / PUBLICATION`; classification: `FEATURE / P1 / requested`;
+- [x] Revision-bound queue admission in `project/ticket-004/`; state:
+  `DONE / DONE`; classification: `FEATURE / P1 / requested`;
   workstream: `integration`. Require ticket, current queue revision, exact plan
   hash, independent admission, same-ticket replan and higher authority for
-  irreversible effects before an executor starts a URI Process.
+  irreversible effects before an executor starts a URI Process. Published
+  through independently validated and merged PR #8 (`5c7d290`).

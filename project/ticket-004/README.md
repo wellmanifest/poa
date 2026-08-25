@@ -2,8 +2,8 @@
 
 - **ID**: ticket-004
 - **Owner**: unresolved:human
-- **Status**: IN_PROGRESS
-- **Workflow state**: PUBLICATION
+- **Status**: DONE
+- **Workflow state**: DONE
 - **Created**: 2026-08-25
 
 ## Goal and scope
@@ -62,6 +62,9 @@ direct-main push, self-approval, merge, runtime deployment or secret access.
 - Plan-only PR #7 was independently approved and merged as `474f0b1`; this
   implementation branch is based on that exact commit, so the intent exists
   before every implementation change as required by `GOV-INTENT-003`.
+- Implementation PR #8 passed Linux and Windows CI, received independent
+  exact-head Validator approval for `36abcf0`, and merged to `main` as
+  `5c7d290`.
 
 ## Participants
 
