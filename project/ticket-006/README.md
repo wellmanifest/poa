@@ -2,8 +2,8 @@
 
 - **ID**: ticket-006
 - **Owner**: agent
-- **Status**: PLAN
-- **Workflow state**: PLAN
+- **Status**: IN_PROGRESS
+- **Workflow state**: PUBLICATION
 - **Created**: 2026-09-18
 
 ## Goal and scope
@@ -12,7 +12,7 @@ Document Algocode tripartite execution (semcod/algocode) and closed DSL compilat
 
 ## Acceptance criteria
 
-- [ ] AC-01: Document Algocode Tripartite Execution in docs/ARCHITECTURE.md.
+- [x] AC-01: Document Algocode Tripartite Execution in docs/ARCHITECTURE.md.
 
 ## Participants
 

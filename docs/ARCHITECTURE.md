@@ -58,6 +58,27 @@ No arrow in this diagram implicitly grants authority. In particular, a valid
 DSL document, a matching GBNF string, an available binding, an observed Twin
 state or a successful dry-run is evidence—not permission to apply.
 
+### 2.1. Algorithmic Execution & Tripartite Communication (semcod/algocode)
+
+POA's requirement for closed DSL input and typed AST compilation directly maps to the **Tripartite Architecture** defined by [`wellmanifest/nl-dsl-llm`](https://github.com/wellmanifest/nl-dsl-llm) and executed by [`semcod/algocode`](https://github.com/semcod/algocode):
+
+```mermaid
+flowchart TD
+    Author[Human / LLM Author] -->|NL or Raw Request| Layer1[Layer 1: Multilingual NL Matcher]
+    Layer1 -->|Intent Matching| Layer2[Layer 2: Canonical Closed DSL]
+    Layer1 -. Unmatched Fallback .-> Layer3[Layer 3: Adaptive LLM Compiler]
+    Layer3 --> Layer2
+    Layer2 --> AST[Typed Process AST]
+    AST --> Algo[Bounded Algorithmic Engine: semcod/algocode]
+    Algo -->|Sub-second Verification| Receipts[Immutable Read-Back Receipts]
+    Receipts --> MCP[JSON-RPC 2.0 MCP Protocol]
+```
+
+1. **Human**: Submits intent via Natural Language (PL/EN) or direct DSL statements.
+2. **LLM**: Generates constrained closed DSL bounded by JSON Schema and GBNF grammar (`poa-process.v1.gbnf`).
+3. **Algorithm (`algocode`)**: Executes deterministic AST checks, sliding-window block hashing, and path conflict checks in <0.5s, writing immutable read-back receipts to the journal.
+4. **Universal Protocol**: Exposes capabilities via Model Context Protocol (MCP) and fail-closed JSON stdin/stdout.
+
 ## 3. Normative components
 
 ### 3.1 Authoring boundary
