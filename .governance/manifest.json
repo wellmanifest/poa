@@ -10,7 +10,7 @@
     ],
     "reviewVerificationMethod": "github-api-allowlist",
     "schema": "new-project.approval-evidence/v1",
-    "signedAttestationPredicateType": "https://wellmanifest.dev/attestations/validator/v1"
+    "signedAttestationPredicateType": "https://wellmanifest.com/attestations/validator/v1"
   },
   "coordination": {
     "integration": {
@@ -23,7 +23,7 @@
       ],
       "workstream": "integration"
     },
-    "maxActiveTicketsPerWorkstream": 1,
+    "maxActiveTicketsPerWorkstream": 4,
     "mode": "workstreams",
     "rejectActiveScopeOverlap": true,
     "workstreams": {
@@ -38,13 +38,20 @@
       },
       "governance": {
         "ownedPaths": [
+          ".gitignore",
           ".governance/**",
+          ".subactor/**",
           "AGENTS.md",
           "README.md",
           "TODO.md",
           "CHANGELOG.md",
           ".env.example",
-          "project/**"
+          "goal.yaml",
+          "project.sh",
+          "project.bat",
+          "project/**",
+          "scripts/runtime.sh",
+          ".github/workflows/ci.yml"
         ]
       },
       "infrastructure": {
@@ -79,9 +86,11 @@
   "delivery": {
     "allowedComplexityClasses": [
       "XS",
-      "S"
+      "S",
+      "M",
+      "L"
     ],
-    "checkpointMinutes": 25,
+    "checkpointMinutes": 30,
     "dependencyManifestPaths": [
       "package.json",
       "pyproject.toml",
@@ -89,11 +98,37 @@
       "Cargo.toml",
       "pom.xml"
     ],
-    "maxActiveMinutes": 30,
-    "maxAffectedComponents": 2,
-    "maxImplementationFiles": 5,
-    "maxPublicInterfaceChanges": 0,
-    "maxRuntimeDependencies": 0,
+    "maxActiveMinutes": 120,
+    "maxAffectedComponents": 5,
+    "maxImplementationFiles": 15,
+    "maxPublicInterfaceChanges": 3,
+    "maxRuntimeDependencies": 3,
+    "profiles": {
+      "L": {
+        "maxAffectedComponents": 5,
+        "maxImplementationFiles": 15,
+        "maxPublicInterfaceChanges": 3,
+        "maxRuntimeDependencies": 3
+      },
+      "M": {
+        "maxAffectedComponents": 3,
+        "maxImplementationFiles": 9,
+        "maxPublicInterfaceChanges": 2,
+        "maxRuntimeDependencies": 2
+      },
+      "S": {
+        "maxAffectedComponents": 2,
+        "maxImplementationFiles": 5,
+        "maxPublicInterfaceChanges": 1,
+        "maxRuntimeDependencies": 1
+      },
+      "XS": {
+        "maxAffectedComponents": 1,
+        "maxImplementationFiles": 2,
+        "maxPublicInterfaceChanges": 0,
+        "maxRuntimeDependencies": 0
+      }
+    },
     "publicInterfacePaths": [
       "api/**",
       "sdk/**",
@@ -107,7 +142,9 @@
   "docker": {
     "composeFiles": [
       "compose.yml",
+      "compose.yaml",
       "docker-compose.yml",
+      "docker-compose.yaml",
       "compose.e2e.yml"
     ],
     "dockerfiles": [
@@ -116,11 +153,20 @@
     ],
     "required": true
   },
+  "domainContracts": {
+    "mode": "none"
+  },
   "governancePaths": [
     "TODO.md",
     "project/TICKETS.md",
-    "project/ticket-*/**"
+    "project/ticket-*/**",
+    ".governance/standard-adoption.json",
+    "config/artifact-registry.json"
   ],
+  "repository": {
+    "componentRoots": [],
+    "mode": "standalone"
+  },
   "requiredFiles": [
     "README.md",
     "VERSION",
@@ -138,7 +184,7 @@
   ],
   "standard": {
     "id": "wellmanifest/new-project",
-    "version": "0.14.1"
+    "version": "0.20.32"
   },
   "ticket": {
     "activeStatuses": [
@@ -148,7 +194,7 @@
       "DONE",
       "CANCELLED"
     ],
-    "directoryPattern": "^ticket-[0-9]{3}$",
+    "directoryPattern": "^ticket-[0-9]{3,}$",
     "implementationStates": [
       "EDIT",
       "VALIDATION",
@@ -160,14 +206,9 @@
       "PLAN",
       "BLOCKED"
     ],
-    "requiredAgentFiles": [
-      "ai-*.md",
-      "ai-*-logs.txt"
-    ],
+    "requiredAgentFiles": [],
     "requiredFiles": [
       "README.md",
-      "preprompt.md",
-      "changelog.md",
       "intent.json"
     ],
     "root": "project"
