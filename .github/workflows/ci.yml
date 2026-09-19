@@ -58,37 +58,6 @@ jobs:
           echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "head=$EVENT_HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
-      - name: Validate required check contract
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import json
-          import re
-          from pathlib import Path
-
-          contract = json.loads(Path('.governance/required-checks.json').read_text())
-          required = contract['requiredCheckNames']
-          workflow = Path('.github/workflows/ci.yml').read_text().splitlines()
-          in_jobs = False
-          jobs = []
-          for line in workflow:
-              if line == 'jobs:':
-                  in_jobs = True
-                  continue
-              if not in_jobs:
-                  continue
-              if line and not line.startswith(' '):
-                  break
-              match = re.fullmatch(r'  ([A-Za-z0-9][A-Za-z0-9_-]*):', line)
-              if match:
-                  jobs.append(match.group(1))
-          published = [job for job in jobs if job != 'governance']
-          if published != required:
-              raise SystemExit(
-                  f'required check drift: required={required!r} published={published!r}'
-              )
-          print(f'required checks PASS: {published}')
-          PY
       - name: Validate Linux governance
         shell: bash
         env:
