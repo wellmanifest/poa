@@ -236,20 +236,25 @@ def validate_plan(contracts: Any, value: Any) -> None:
         contracts.ref("targetRef", step["target_ref"])
         contracts.ref("artifactRef", step["input_ref"])
         contracts.ref("sha256", step["input_sha256"])
-        if step["kind"] not in {"query", "command"} or f"/{step['kind']}/" not in process_uri:
+        kind = _pr.str_choice(
+            step["kind"], {"query", "command"}, ContractError("planned step URI and kind disagree")
+        )
+        if f"/{kind}/" not in process_uri:
             raise ContractError("planned step URI and kind disagree")
         effects = _pr.unique_list(
             step["effects"], "planned effects are invalid", minimum=1, maximum=len(ALLOWED_EFFECTS)
         )
-        if any(effect not in ALLOWED_EFFECTS for effect in effects):
+        if any(not isinstance(e, str) or e not in ALLOWED_EFFECTS for e in effects):
             raise ContractError("planned effects are invalid")
-        if step["kind"] == "query" and set(effects) & {
+        if kind == "query" and set(effects) & {
             "local_write",
             "external_write",
             "destructive",
         }:
             raise ContractError("planned query declares a mutating effect")
-        dependencies = _pr.unique_list(step["depends_on"], "planned dependencies are invalid")
+        dependencies = _pr.unique_list(
+            step["depends_on"], "planned dependencies are invalid", maximum=32
+        )
         for dependency in dependencies:
             contracts.ref("identifier", dependency)
         graph[step_id] = list(dependencies)
@@ -328,8 +333,7 @@ def validate_receipt(contracts: Any, value: Any) -> None:
         "denied",
         "expired",
     }
-    if value["state"] not in allowed_states:
-        raise ContractError("receipt state is invalid")
+    _pr.str_choice(value["state"], allowed_states, ContractError("receipt state is invalid"))
     if value["hash_profile"] != "RFC8785+SHA-256":
         raise ContractError("receipt hash profile is not supported")
     if value["raw_output_included"] is not False or value["secret_material_included"] is not False:
@@ -357,8 +361,7 @@ def validate_receipt(contracts: Any, value: Any) -> None:
         contracts.ref("processUri", step["process_uri"])
         contracts.ref("sha256", step["output_sha256"])
         contracts.ref("identifier", step["step_id"])
-        if step["state"] not in step_states:
-            raise ContractError("step receipt state is invalid")
+        _pr.str_choice(step["state"], step_states, ContractError("step receipt state is invalid"))
         _pr.bounded_int(step["attempts"], 0, 5, "step receipt attempt count is invalid")
         _pr.bounded_int(step["output_bytes"], 0, 100_000_000, "step receipt output size is invalid")
         _pr.strict_bool(step["effect_verified"], "step receipt verification flag is invalid")
@@ -413,8 +416,7 @@ def validate_event(contracts: Any, value: Any) -> None:
         "denied",
         "expired",
     }
-    if value["event_type"] not in event_types:
-        raise ContractError("event type is invalid")
+    _pr.str_choice(value["event_type"], event_types, ContractError("event type is invalid"))
     _pr.bounded_int(value["sequence"], 1, 2_147_483_647, "event sequence is invalid")
     require_datetime(value["occurred_at"], "event time")
     refs = _pr.unique_list(value["artifact_refs"], "event artifacts are invalid", maximum=16)

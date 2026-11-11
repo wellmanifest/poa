@@ -5,10 +5,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import os
 import re
+import stat
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+MAX_FILE_BYTES = 4 * 1024 * 1024
+MAX_JSON_DEPTH = 64
 
 RFC3339_RE = re.compile(
     r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
@@ -35,8 +42,94 @@ class QueueContractError(ValueError):
         self.code = code
 
 
-def strict_loads(raw: str, *, duplicate_error: Exception | None = None) -> Any:
-    """Parse JSON while rejecting duplicate object keys."""
+def read_regular_utf8(
+    path: Path,
+    *,
+    max_bytes: int = MAX_FILE_BYTES,
+    error: Exception | None = None,
+) -> str:
+    """Read a bounded regular UTF-8 file without following leaf symlinks."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        raise (error if error is not None else ContractError("file cannot be opened")) from exc
+    chunks: list[bytes] = []
+    total = 0
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            raise error if error is not None else ContractError("path is not a regular file")
+        if st.st_size > max_bytes:
+            raise error if error is not None else ContractError("file exceeds maximum byte size")
+        while True:
+            chunk = os.read(fd, min(65536, max_bytes + 1 - total))
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise (
+                    error if error is not None else ContractError("file exceeds maximum byte size")
+                )
+            chunks.append(chunk)
+    except OSError as exc:
+        raise (error if error is not None else ContractError("file cannot be read")) from exc
+    finally:
+        os.close(fd)
+    try:
+        return b"".join(chunks).decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise (error if error is not None else ContractError("file is not valid UTF-8")) from exc
+
+
+def _check_json_tree(
+    value: Any,
+    *,
+    max_depth: int = MAX_JSON_DEPTH,
+    error: Exception | None = None,
+) -> None:
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if depth > max_depth:
+            raise (
+                error
+                if error is not None
+                else ContractError("JSON exceeds maximum nesting depth")
+            )
+        if isinstance(node, float) and not math.isfinite(node):
+            raise (
+                error
+                if error is not None
+                else ContractError("non-finite JSON number is forbidden")
+            )
+        if isinstance(node, dict):
+            for key, child in node.items():
+                if not isinstance(key, str):
+                    raise (
+                        error
+                        if error is not None
+                        else ContractError("JSON object keys must be strings")
+                    )
+                stack.append((child, depth + 1))
+        elif isinstance(node, list):
+            for child in node:
+                stack.append((child, depth + 1))
+
+
+def strict_loads(
+    raw: str,
+    *,
+    duplicate_error: Exception | None = None,
+    parse_error: Exception | None = None,
+) -> Any:
+    """Parse bounded finite JSON while rejecting duplicate keys and deep nesting."""
+    if not isinstance(raw, str) or len(raw.encode("utf-8", errors="replace")) > MAX_FILE_BYTES:
+        raise (
+            parse_error
+            if parse_error is not None
+            else ContractError("JSON input must be a bounded string")
+        )
 
     def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         obj: dict[str, Any] = {}
@@ -48,16 +141,67 @@ def strict_loads(raw: str, *, duplicate_error: Exception | None = None) -> Any:
             obj[key] = value
         return obj
 
-    return json.loads(raw, object_pairs_hook=_unique_pairs)
+    def _reject_constant(_token: str) -> Any:
+        raise (
+            parse_error
+            if parse_error is not None
+            else ContractError("non-finite JSON constant is forbidden")
+        )
+
+    def _parse_finite_float(token: str) -> float:
+        parsed_val = float(token)
+        if not math.isfinite(parsed_val):
+            raise (
+                parse_error
+                if parse_error is not None
+                else ContractError("non-finite JSON number is forbidden")
+            )
+        return parsed_val
+
+    try:
+        parsed = json.loads(
+            raw,
+            object_pairs_hook=_unique_pairs,
+            parse_constant=_reject_constant,
+            parse_float=_parse_finite_float,
+        )
+    except RecursionError as exc:
+        raise (
+            parse_error
+            if parse_error is not None
+            else ContractError("JSON exceeds maximum nesting depth")
+        ) from exc
+    except json.JSONDecodeError as exc:
+        if parse_error is not None:
+            raise parse_error from exc
+        raise
+    _check_json_tree(parsed, error=parse_error)
+    return parsed
 
 
-def load_strict_json(path: Path, *, duplicate_error: Exception | None = None) -> Any:
-    return strict_loads(path.read_text("utf-8"), duplicate_error=duplicate_error)
+def load_strict_json(
+    path: Path,
+    *,
+    duplicate_error: Exception | None = None,
+    parse_error: Exception | None = None,
+) -> Any:
+    raw = read_regular_utf8(path, error=parse_error)
+    return strict_loads(raw, duplicate_error=duplicate_error, parse_error=parse_error)
 
 
 def canonical(value: Any) -> str:
     """Serialize the POA numeric/string subset using the RFC 8785 profile."""
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    _check_json_tree(value)
+    try:
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise ContractError("value is not RFC 8785 canonicalizable") from exc
 
 
 def digest_text(value: str) -> str:
@@ -65,28 +209,65 @@ def digest_text(value: str) -> str:
 
 
 def exact_fields(value: Any, required: set[str], optional: set[str] | None = None) -> None:
-    if not isinstance(value, dict):
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
         raise ContractError("document must be an object")
     optional_keys = optional or set()
-    if set(value) - required - optional_keys:
+    keys = set(value)
+    if keys - required - optional_keys:
         raise ContractError("document contains undeclared fields")
-    if required - set(value):
+    if required - keys:
         raise ContractError("document is missing required fields")
 
 
 def exact_queue(value: Any, required: set[str], optional: set[str] | None = None) -> dict[str, Any]:
-    if not isinstance(value, dict):
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
         raise QueueContractError("POA-DOC-001", "document must be an object")
-    extra = set(value) - required - (optional or set())
-    missing = required - set(value)
+    keys = set(value)
+    extra = keys - required - (optional or set())
+    missing = required - keys
     if extra or missing:
         raise QueueContractError("POA-DOC-001", "document fields are not closed")
     return value
 
 
-def require_string(value: Any, pattern: re.Pattern[str], label: str) -> str:
-    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+def require_string(
+    value: Any,
+    pattern: re.Pattern[str],
+    label: str,
+    *,
+    max_length: int | None = None,
+) -> str:
+    if (
+        not isinstance(value, str)
+        or (max_length is not None and len(value) > max_length)
+        or pattern.fullmatch(value) is None
+    ):
         raise ContractError(f"{label} violates its declared pattern")
+    return value
+
+
+def str_choice(value: Any, allowed: set[str], error: Exception) -> str:
+    if not isinstance(value, str) or value not in allowed:
+        raise error
+    return value
+
+
+def validate_safe_uri_segments(value: str, *, error: Exception | None = None) -> str:
+    if "://" in value:
+        _, rest = value.split("://", 1)
+        if "?" in rest or "#" in rest or "\\" in rest:
+            raise (
+                error if error is not None else ContractError("URI contains forbidden delimiters")
+            )
+        authority, sep, path = rest.partition("/")
+        if not authority or authority in {".", ".."}:
+            raise error if error is not None else ContractError("URI authority is invalid")
+        if sep and any(seg in {"", ".", ".."} for seg in path.split("/")):
+            raise (
+                error
+                if error is not None
+                else ContractError("URI contains unsafe or empty path segments")
+            )
     return value
 
 
@@ -141,31 +322,58 @@ def parse_queue_time(value: Any) -> datetime:
     if not isinstance(value, str) or len(value) > 40 or RFC3339_RE.fullmatch(value) is None:
         raise QueueContractError("POA-TIME-001", "timestamp is not RFC3339")
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as error:
         raise QueueContractError("POA-TIME-001", "timestamp is not RFC3339") from error
+    if parsed.tzinfo is None:
+        raise QueueContractError("POA-TIME-001", "timestamp has no timezone")
+    return parsed
 
 
 def assert_closed_objects(value: Any, message: str = "an object schema is not closed") -> None:
-    if isinstance(value, dict):
-        if value.get("type") == "object" and value.get("additionalProperties") is not False:
-            raise ContractError(message)
-        for child in value.values():
-            assert_closed_objects(child, message)
-    elif isinstance(value, list):
-        for child in value:
-            assert_closed_objects(child, message)
+    predicate_keys = {"if", "not", "contains"}
+    map_keys = {"properties", "$defs", "dependentSchemas"}
+    stack: list[tuple[Any, int, bool]] = [(value, 0, False)]
+    while stack:
+        node, depth, is_map = stack.pop()
+        if depth > MAX_JSON_DEPTH:
+            raise ContractError("schema exceeds maximum nesting depth")
+        if isinstance(node, dict):
+            if (
+                not is_map
+                and node.get("type") == "object"
+                and node.get("additionalProperties") is not False
+            ):
+                raise ContractError(message)
+            for key, child in node.items():
+                if not is_map and key in predicate_keys:
+                    continue
+                stack.append((child, depth + 1, not is_map and key in map_keys))
+        elif isinstance(node, list):
+            for child in node:
+                stack.append((child, depth + 1, False))
 
 
 def reject_secret_material(value: Any, *, error: Exception | None = None) -> None:
-    if isinstance(value, dict):
-        for child in value.values():
-            reject_secret_material(child, error=error)
-    elif isinstance(value, list):
-        for child in value:
-            reject_secret_material(child, error=error)
-    elif isinstance(value, str) and SECRET_MATERIAL.search(value):
-        raise (error if error is not None else ContractError("credential material is forbidden"))
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    while stack:
+        node, depth = stack.pop()
+        if depth > MAX_JSON_DEPTH:
+            raise (
+                error
+                if error is not None
+                else ContractError("document exceeds maximum nesting depth")
+            )
+        if isinstance(node, dict):
+            for child in node.values():
+                stack.append((child, depth + 1))
+        elif isinstance(node, list):
+            for child in node:
+                stack.append((child, depth + 1))
+        elif isinstance(node, str) and SECRET_MATERIAL.search(node):
+            raise (
+                error if error is not None else ContractError("credential material is forbidden")
+            )
 
 
 def assert_dag(
@@ -176,28 +384,30 @@ def assert_dag(
     unresolved_msg: str,
     cycle_msg: str,
 ) -> None:
-    if len(ids) != len(set(ids)):
+    try:
+        known = set(ids)
+    except TypeError as exc:
+        raise ContractError(duplicate_msg) from exc
+    if len(ids) != len(known):
         raise ContractError(duplicate_msg)
-    known = set(ids)
-    if any(
-        dependency not in known or dependency == step
-        for step, dependencies in edges.items()
-        for dependency in dependencies
-    ):
-        raise ContractError(unresolved_msg)
-    visiting: set[str] = set()
-    visited: set[str] = set()
-
-    def visit(step_id: str) -> None:
-        if step_id in visiting:
-            raise ContractError(cycle_msg)
-        if step_id in visited:
-            return
-        visiting.add(step_id)
-        for dependency in edges[step_id]:
-            visit(dependency)
-        visiting.remove(step_id)
-        visited.add(step_id)
-
-    for step_id in ids:
-        visit(step_id)
+    in_degree: dict[str, int] = dict.fromkeys(ids, 0)
+    dependents: dict[str, list[str]] = {step_id: [] for step_id in ids}
+    for step, dependencies in edges.items():
+        if step not in known:
+            raise ContractError(unresolved_msg)
+        for dependency in dependencies:
+            if not isinstance(dependency, str) or dependency not in known or dependency == step:
+                raise ContractError(unresolved_msg)
+            in_degree[step] += 1
+            dependents[dependency].append(step)
+    ready = deque(step_id for step_id in ids if in_degree[step_id] == 0)
+    visited = 0
+    while ready:
+        current = ready.popleft()
+        visited += 1
+        for child in dependents[current]:
+            in_degree[child] -= 1
+            if in_degree[child] == 0:
+                ready.append(child)
+    if visited != len(ids):
+        raise ContractError(cycle_msg)

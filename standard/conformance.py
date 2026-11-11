@@ -56,26 +56,27 @@ CANONICAL_REQUESTS = {
 class Contracts:
     def __init__(self) -> None:
         self.schema = _pr.load_strict_json(SCHEMA_PATH)
-        self.grammar = GRAMMAR_PATH.read_text("utf-8")
+        self.grammar = _pr.read_regular_utf8(GRAMMAR_PATH)
         definitions = self.schema.get("$defs")
         if not isinstance(definitions, dict):
             raise ContractError("schema definitions are unavailable")
-        self.patterns = {
-            name: re.compile(str(definitions[name]["pattern"]))
-            for name in (
-                "identifier",
-                "sha256",
-                "sha256Ref",
-                "processRef",
-                "capabilityRef",
-                "policyRef",
-                "artifactRef",
-                "schemaRef",
-                "grammarRef",
-                "adapterRef",
-                "targetRef",
-                "processUri",
-            )
+        ref_names = (
+            "identifier",
+            "sha256",
+            "sha256Ref",
+            "processRef",
+            "capabilityRef",
+            "policyRef",
+            "artifactRef",
+            "schemaRef",
+            "grammarRef",
+            "adapterRef",
+            "targetRef",
+            "processUri",
+        )
+        self.patterns = {name: re.compile(str(definitions[name]["pattern"])) for name in ref_names}
+        self.max_lengths: dict[str, int | None] = {
+            name: definitions[name].get("maxLength") for name in ref_names
         }
 
     def validate_integrity(self) -> None:
@@ -116,7 +117,10 @@ class Contracts:
         _pr.assert_closed_objects(self.schema)
 
     def ref(self, name: str, value: Any) -> str:
-        return require_string(value, self.patterns[name], name)
+        checked = require_string(
+            value, self.patterns[name], name, max_length=self.max_lengths[name]
+        )
+        return _pr.validate_safe_uri_segments(checked)
 
 
 def request_canonical(value: dict[str, Any]) -> str:
@@ -128,7 +132,7 @@ def request_canonical(value: dict[str, Any]) -> str:
     if value["operation"] == "plan":
         ordered["input_ref"] = value["input_ref"]
         ordered["input_sha256"] = value["input_sha256"]
-    return json.dumps(ordered, ensure_ascii=False, separators=(",", ":"))
+    return json.dumps(ordered, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
 def validate_request(contracts: Contracts, value: Any) -> dict[str, Any]:
@@ -234,10 +238,14 @@ def validate_execution_envelope(contracts: Contracts, value: Any) -> None:
     contracts.ref("identifier", value["execution_id"])
     contracts.ref("sha256Ref", value["request_ref"])
     contracts.ref("sha256Ref", value["plan_ref"])
-    require_string(value["grant_ref"], re.compile(r"grant:[a-zA-Z0-9._:-]+"), "grant_ref")
-    require_string(value["intent_ref"], re.compile(r"intent:[a-zA-Z0-9._:-]+"), "intent_ref")
+    require_string(
+        value["grant_ref"], re.compile(r"grant:[a-zA-Z0-9._:-]+"), "grant_ref", max_length=160
+    )
+    require_string(
+        value["intent_ref"], re.compile(r"intent:[a-zA-Z0-9._:-]+"), "intent_ref", max_length=160
+    )
     actor_re = re.compile(r"(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+")
-    require_string(value["subject"], actor_re, "subject")
+    require_string(value["subject"], actor_re, "subject", max_length=160)
     require_datetime(value["lease_expires_at"], "execution lease")
     _pr.bounded_int(
         value["lease_revision"], 1, 2_147_483_647, "execution lease revision is invalid"
@@ -264,17 +272,22 @@ def validate_process_step(contracts: Contracts, value: Any) -> None:
     contracts.ref("capabilityRef", value["capability_ref"])
     if "compensation_capability_ref" in value:
         contracts.ref("capabilityRef", value["compensation_capability_ref"])
-    kind = value["kind"]
-    if kind not in {"query", "command"}:
-        raise ContractError("step kind is invalid")
+    kind = _pr.str_choice(
+        value["kind"], {"query", "command"}, ContractError("step kind is invalid")
+    )
+    idempotency = _pr.str_choice(
+        value["idempotency"],
+        {"required", "read_only", "unsupported"},
+        ContractError("step idempotency mode is invalid"),
+    )
     effects = _pr.unique_list(
         value["effects"], "step effects are invalid", minimum=1, maximum=len(ALLOWED_EFFECTS)
     )
-    if any(effect not in ALLOWED_EFFECTS for effect in effects):
+    if any(not isinstance(effect, str) or effect not in ALLOWED_EFFECTS for effect in effects):
         raise ContractError("step effects are invalid")
     if kind == "query" and (
         set(effects) & {"local_write", "external_write", "destructive"}
-        or value["idempotency"] != "read_only"
+        or idempotency != "read_only"
     ):
         raise ContractError("query step declares a mutating behavior")
     approval_effects = {
@@ -287,13 +300,11 @@ def validate_process_step(contracts: Contracts, value: Any) -> None:
     _pr.strict_bool(value["requires_approval"], "step requires_approval must be boolean")
     if set(effects) & approval_effects and value["requires_approval"] is not True:
         raise ContractError("high-impact step lacks explicit approval")
-    deps = _pr.unique_list(value["depends_on"], "step dependencies are invalid")
+    deps = _pr.unique_list(value["depends_on"], "step dependencies are invalid", maximum=32)
     for dependency in deps:
         contracts.ref("identifier", dependency)
     _pr.bounded_int(value["timeout_seconds"], 1, 900, "step timeout is invalid")
     _pr.bounded_int(value["max_attempts"], 1, 5, "step attempt budget is invalid")
-    if value["idempotency"] not in {"required", "read_only", "unsupported"}:
-        raise ContractError("step idempotency mode is invalid")
     verification = _pr.bounded_list(
         value["verification"], "step verification is missing", minimum=1, maximum=8
     )
@@ -323,8 +334,15 @@ def validate_process(contracts: Contracts, value: Any) -> dict[str, Any]:
     contracts.ref("schemaRef", value["output_schema_ref"])
     if not isinstance(value["title"], str) or not 1 <= len(value["title"]) <= 160:
         raise ContractError("process title is invalid")
-    require_string(value["owner"], re.compile(r"(?:human|agent|service):[a-zA-Z0-9._:-]+"), "owner")
-    policies = _pr.unique_list(value["policy_refs"], "process policies are invalid", minimum=1)
+    require_string(
+        value["owner"],
+        re.compile(r"(?:human|agent|service):[a-zA-Z0-9._:-]+"),
+        "owner",
+        max_length=160,
+    )
+    policies = _pr.unique_list(
+        value["policy_refs"], "process policies are invalid", minimum=1, maximum=16
+    )
     for policy in policies:
         contracts.ref("policyRef", policy)
     steps = _pr.bounded_list(value["steps"], "process steps are invalid", minimum=1, maximum=64)
@@ -456,7 +474,7 @@ def main(argv: list[str] | None = None) -> int:
             }
         else:
             output = run_all()
-    except (ContractError, json.JSONDecodeError) as error:
+    except (ContractError, json.JSONDecodeError, OSError) as error:
         report = {"schema": "poa.conformance-report/v1", "ok": False, "error": type(error).__name__}
         print(json.dumps(report, sort_keys=True))
         return 1

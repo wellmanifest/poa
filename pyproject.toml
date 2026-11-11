@@ -20,4 +20,4 @@ gate = "project/governance-check.sh"
 [tool.pytest.ini_options]
 addopts = "-p wellmanifest_governance -p no:cacheprovider"
 pythonpath = [".", "standard"]
-testpaths = ["tests"]
+testpaths = ["tests", "standard"]
