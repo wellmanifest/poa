@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from standard import conformance as poa
+from standard import poa_io as pio
 from standard import poa_primitives as pr
 from standard import ticket_queue as tq
 from standard import ticket_queue_conformance as tqc
@@ -23,6 +24,12 @@ class PoaHardeningTests(unittest.TestCase):
             self.contracts, poa.example_process(), poa.example_request()
         )
         self.seed = tq.load_seed()
+
+    def test_all_standard_modules_stay_under_500_lines(self) -> None:
+        std_dir = Path(poa.__file__).resolve().parent
+        for py_file in sorted(std_dir.glob("*.py")):
+            line_count = len(py_file.read_text(encoding="utf-8").splitlines())
+            self.assertLess(line_count, 500, f"{py_file.name} exceeded 500 lines ({line_count})")
 
     def test_read_regular_utf8_rejects_symlinks_directories_and_oversize(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -48,11 +55,18 @@ class PoaHardeningTests(unittest.TestCase):
                 nested.write_text('{"ok": true}', encoding="utf-8")
                 parent_link = root / "parent_link"
                 parent_link.symlink_to(real_dir)
+                sub_dir = root / "sub_dir"
+                sub_dir.mkdir()
                 prev_cwd = Path.cwd()
                 try:
                     os.chdir(root)
                     with self.assertRaises(pr.ContractError):
                         pr.read_regular_utf8(Path("parent_link/nested.json"))
+                    with self.assertRaises(pr.ContractError):
+                        pr.read_regular_utf8(Path("parent_link/../real_dir/nested.json"))
+                    os.chdir(sub_dir)
+                    with self.assertRaises(pr.ContractError):
+                        pr.read_regular_utf8(Path("../parent_link/nested.json"))
                 finally:
                     os.chdir(prev_cwd)
 
@@ -66,8 +80,8 @@ class PoaHardeningTests(unittest.TestCase):
                 return os.stat_result(vals)
 
             with (
-                patch("standard.poa_primitives.os.lstat", side_effect=real_lstat),
-                patch("standard.poa_primitives.os.fstat", side_effect=_swapped_fstat),
+                patch.object(pio.os, "lstat", side_effect=real_lstat),
+                patch.object(pio.os, "fstat", side_effect=_swapped_fstat),
                 self.assertRaises(pr.ContractError),
             ):
                 pr.read_regular_utf8(target)
@@ -159,9 +173,7 @@ class PoaHardeningTests(unittest.TestCase):
             poa.validate_event(self.contracts, event)
 
         queue = tq.TicketQueue(copy.deepcopy(self.seed))
-        bad_task = tqc._task(
-            "poa.tkt.control-origin-unify", "observe-worktree-5552b4a", "ops.auth"
-        )
+        bad_task = tqc._task("poa.tkt.control-origin-unify", "observe-worktree-5552b4a", "ops.auth")
         bad_task["process_step_id"] = ["unhashable"]
         with self.assertRaises(tq.QueueContractError) as step_err:
             queue.enqueue_task(bad_task)
@@ -260,6 +272,7 @@ class PoaHardeningTests(unittest.TestCase):
 
     def test_huge_int_lone_surrogates_abs_symlink_ancestors_key_scan_and_uri_segments(self) -> None:
         for bad_json in (
+            '{"n": ' + ("9" * 310) + "}",
             '{"n": ' + ("9" * 400) + "}",
             '{"n": -' + ("9" * 400) + "}",
             '{"n": ' + ("9" * 5000) + "}",
@@ -268,7 +281,7 @@ class PoaHardeningTests(unittest.TestCase):
             '{"s": "\ud800"}',
         ):
             with self.subTest(sample=bad_json[:32]), self.assertRaises(pr.ContractError):
-                pr.strict_loads(bad_json, parse_error=pr.ContractError("bad json"))
+                pr.strict_loads(bad_json)
 
         with self.assertRaises(pr.ContractError):
             pr.canonical({"huge": 10**400})
@@ -280,6 +293,27 @@ class PoaHardeningTests(unittest.TestCase):
         crafted_key = "gh" + "p_" + ("A" * 24)
         with self.assertRaises(pr.ContractError):
             pr.reject_secret_material({crafted_key: "clean"})
+        with self.assertRaises(pr.ContractError):
+            pr.reject_secret_material({"sur\ud800": "clean"})
+        with self.assertRaises(pr.ContractError):
+            pr.reject_secret_material({"clean": "sur\udfff"})
+
+        for bad_title in (
+            "bad\x00title",
+            "bad\ntitle",
+            "bad\x1btitle",
+            "bad\x7ftitle",
+            "sur\ud800",
+        ):
+            proc = copy.deepcopy(poa.example_process())
+            proc["title"] = bad_title
+            with self.subTest(kind=repr(bad_title)), self.assertRaises(poa.ContractError):
+                poa.validate_process(self.contracts, proc)
+
+        obs = copy.deepcopy(poa.example_observation())
+        obs["sur\ud800"] = "x"
+        with self.assertRaises(poa.ContractError):
+            poa.validate_observation(self.contracts, obs)
 
         for bad_uri in (
             "poa://subactor.test/foo:..:bar",
