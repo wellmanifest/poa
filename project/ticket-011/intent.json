@@ -1,0 +1,92 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-011",
+  "summary": "Harden POA JSON overflow/surrogates, absolute symlink ancestors, key secret scanning, and URI segments",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-010/README.md",
+    "project/ticket-011/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/poa_primitives.py",
+    "standard/test_poa_hardening.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "b12c249385fe66fc2d46b60e02c5780b7ce6fc49",
+    "targetBranch": "main",
+    "outcome": "Enforce 10**400 JSON integer overflow and lone UTF-16 surrogate rejection in standard/poa_primitives.py, extend symlink ancestor guards to absolute paths, scan JSON object keys in reject_secret_material, tighten colon-delimited URI segment checks, expand standard/test_poa_hardening.py, and reconcile merged ticket-010.",
+    "nonGoals": [
+      "Do not alter frozen POA JSON schemas, protobuf definitions, or GBNF grammars",
+      "No runtime dependency additions"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 25,
+    "budgets": {
+      "maxImplementationFiles": 4,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Keep standard/poa_primitives.py strictly under 500 lines while hardening JSON integer/surrogate bounds, absolute symlink ancestors, secret key scanning, and colon-delimited URI segment validation, with regression tests in standard/test_poa_hardening.py.",
+      "components": [
+        {
+          "name": "poa-conformance",
+          "paths": [
+            "standard/poa_primitives.py",
+            "standard/test_poa_hardening.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "ruff check --no-cache standard",
+          "python3 standard/conformance.py --all"
+        ],
+        "evidence": "project/ticket-011/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "python3 standard/ticket_queue.py",
+          "pytest -q"
+        ],
+        "evidence": "project/ticket-011/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-011/README.md"
+      }
+    ]
+  }
+}

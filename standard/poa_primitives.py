@@ -49,8 +49,14 @@ class QueueContractError(ValueError):
         self.code = code
 
 
-def _reject_relative_ancestor_symlinks(path: Path, error: Exception | None) -> None:
+def _err(error: Exception | None, msg: str) -> Exception:
+    return error if error is not None else ContractError(msg)
+
+
+def _reject_ancestor_symlinks(path: Path, error: Exception | None) -> None:
     if path.is_absolute():
+        if any(anc.is_symlink() for anc in path.parents if len(anc.parts) > 2):
+            raise _err(error, "symlink parent directory is forbidden")
         return
     cur = Path()
     for part in path.parts[:-1]:
@@ -60,13 +66,9 @@ def _reject_relative_ancestor_symlinks(path: Path, error: Exception | None) -> N
         try:
             st = os.lstat(cur)
         except OSError as exc:
-            raise (error if error is not None else ContractError("file cannot be opened")) from exc
+            raise _err(error, "file cannot be opened") from exc
         if stat.S_ISLNK(st.st_mode):
-            raise (
-                error
-                if error is not None
-                else ContractError("symlink parent directory is forbidden")
-            )
+            raise _err(error, "symlink parent directory is forbidden")
 
 
 def read_regular_utf8(
@@ -80,7 +82,7 @@ def read_regular_utf8(
         raise error if error is not None else ContractError("invalid maximum byte size")
     if not isinstance(path, Path):
         path = Path(path)
-    _reject_relative_ancestor_symlinks(path, error)
+    _reject_ancestor_symlinks(path, error)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
         lst = os.lstat(path)
@@ -121,35 +123,42 @@ def read_regular_utf8(
         raise (error if error is not None else ContractError("file is not valid UTF-8")) from exc
 
 
+def _check_utf8_str(value: str, error: Exception | None = None) -> None:
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise _err(error, "lone UTF-16 surrogate is forbidden") from exc
+
+
 def _check_json_tree(
     value: Any,
     *,
     max_depth: int = MAX_JSON_DEPTH,
     error: Exception | None = None,
 ) -> None:
+    if type(max_depth) is not int or max_depth < 1:
+        raise _err(error, "invalid JSON nesting depth bound")
     stack: list[tuple[Any, int]] = [(value, 0)]
     while stack:
         node, depth = stack.pop()
         if depth > max_depth:
-            raise (
-                error
-                if error is not None
-                else ContractError("JSON exceeds maximum nesting depth")
-            )
-        if isinstance(node, float) and not math.isfinite(node):
-            raise (
-                error
-                if error is not None
-                else ContractError("non-finite JSON number is forbidden")
-            )
-        if isinstance(node, dict):
+            raise _err(error, "JSON exceeds maximum nesting depth")
+        if isinstance(node, str):
+            _check_utf8_str(node, error)
+        elif type(node) is int:
+            try:
+                ok = math.isfinite(float(node))
+            except OverflowError:
+                ok = False
+            if not ok:
+                raise _err(error, "JSON integer magnitude overflow")
+        elif isinstance(node, float) and not math.isfinite(node):
+            raise _err(error, "non-finite JSON number is forbidden")
+        elif isinstance(node, dict):
             for key, child in node.items():
                 if not isinstance(key, str):
-                    raise (
-                        error
-                        if error is not None
-                        else ContractError("JSON object keys must be strings")
-                    )
+                    raise _err(error, "JSON object keys must be strings")
+                _check_utf8_str(key, error)
                 stack.append((child, depth + 1))
         elif isinstance(node, list):
             for child in node:
@@ -163,12 +172,11 @@ def strict_loads(
     parse_error: Exception | None = None,
 ) -> Any:
     """Parse bounded finite JSON while rejecting duplicate keys and deep nesting."""
-    if not isinstance(raw, str) or len(raw.encode("utf-8", errors="replace")) > MAX_FILE_BYTES:
-        raise (
-            parse_error
-            if parse_error is not None
-            else ContractError("JSON input must be a bounded string")
-        )
+    if not isinstance(raw, str):
+        raise _err(parse_error, "JSON input must be a bounded string")
+    _check_utf8_str(raw, parse_error)
+    if len(raw.encode("utf-8")) > MAX_FILE_BYTES:
+        raise _err(parse_error, "JSON input must be a bounded string")
 
     def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         obj: dict[str, Any] = {}
@@ -210,10 +218,12 @@ def strict_loads(
             if parse_error is not None
             else ContractError("JSON exceeds maximum nesting depth")
         ) from exc
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, ValueError) as exc:
         if parse_error is not None:
             raise parse_error from exc
-        raise
+        if isinstance(exc, json.JSONDecodeError):
+            raise
+        raise ContractError("invalid JSON number or syntax") from exc
     _check_json_tree(parsed, error=parse_error)
     return parsed
 
@@ -244,6 +254,7 @@ def canonical(value: Any) -> str:
 
 
 def digest_text(value: str) -> str:
+    _check_utf8_str(value)
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
@@ -303,7 +314,11 @@ def validate_safe_uri_segments(value: str, *, error: Exception | None = None) ->
         authority, sep, path = rest.partition("/")
         if not authority or authority in {".", ".."}:
             raise error if error is not None else ContractError("URI authority is invalid")
-        if sep and any(seg in {"", ".", ".."} for seg in path.split("/")):
+        if sep and any(
+            seg in {"", ".", ".."}
+            or (":" in seg and any(sub in {"", ".", ".."} for sub in seg.split(":")))
+            for seg in path.split("/")
+        ):
             raise (
                 error
                 if error is not None
@@ -311,11 +326,11 @@ def validate_safe_uri_segments(value: str, *, error: Exception | None = None) ->
             )
     elif ":" in value:
         scheme, rest = value.split(":", 1)
-        if not scheme or "?" in rest or "#" in rest:
+        if not scheme or not rest or "?" in rest or "#" in rest:
             raise (
                 error if error is not None else ContractError("URI contains forbidden delimiters")
             )
-        if any(seg == ".." for seg in re.split(r"[/:]", rest)):
+        if any(seg in {"", ".", ".."} for seg in re.split(r"[/:]", rest)):
             raise (
                 error
                 if error is not None
@@ -418,7 +433,13 @@ def reject_secret_material(value: Any, *, error: Exception | None = None) -> Non
                 else ContractError("document exceeds maximum nesting depth")
             )
         if isinstance(node, dict):
-            for child in node.values():
+            for key, child in node.items():
+                if isinstance(key, str) and SECRET_MATERIAL.search(key):
+                    raise (
+                        error
+                        if error is not None
+                        else ContractError("credential material is forbidden")
+                    )
                 stack.append((child, depth + 1))
         elif isinstance(node, list):
             for child in node:

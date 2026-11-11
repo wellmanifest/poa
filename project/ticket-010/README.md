@@ -2,8 +2,8 @@
 
 - **ID**: ticket-010
 - **Owner**: tom
-- **Status**: IN_PROGRESS
-- **Workflow state**: VALIDATION
+- **Status**: DONE
+- **Workflow state**: PUBLICATION
 - **Created**: 2026-11-11
 
 ## Goal and scope
