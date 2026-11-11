@@ -39,18 +39,29 @@ GRAMMAR_PATH = ROOT / "poa-process.v1.gbnf"
 JSON_STRING = r'"(?:[^"\\\x00-\x1f]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"'
 CANONICAL_REQUESTS = {
     "inspect": re.compile(
-        r'^\{"schema":"poa\.request/v1","operation":"inspect","process_ref":' + JSON_STRING + r"\}$"
+        r'\A\{"schema":"poa\.request/v1","operation":"inspect","process_ref":'
+        + JSON_STRING
+        + r"\}\Z"
     ),
     "plan": re.compile(
-        r'^\{"schema":"poa\.request/v1","operation":"plan","process_ref":'
+        r'\A\{"schema":"poa\.request/v1","operation":"plan","process_ref":'
         + JSON_STRING
         + r',"input_ref":'
         + JSON_STRING
         + r',"input_sha256":'
         + JSON_STRING
-        + r"\}$"
+        + r"\}\Z"
     ),
 }
+
+
+def _compile_schema_pattern(raw_pattern: str) -> re.Pattern[str]:
+    anchored = raw_pattern
+    if anchored.startswith("^"):
+        anchored = r"\A" + anchored[1:]
+    if anchored.endswith("$") and not anchored.endswith(r"\$"):
+        anchored = anchored[:-1] + r"\Z"
+    return re.compile(anchored)
 
 
 class Contracts:
@@ -74,7 +85,9 @@ class Contracts:
             "targetRef",
             "processUri",
         )
-        self.patterns = {name: re.compile(str(definitions[name]["pattern"])) for name in ref_names}
+        self.patterns = {
+            name: _compile_schema_pattern(str(definitions[name]["pattern"])) for name in ref_names
+        }
         self.max_lengths: dict[str, int | None] = {
             name: definitions[name].get("maxLength") for name in ref_names
         }
@@ -238,20 +251,20 @@ def validate_execution_envelope(contracts: Contracts, value: Any) -> None:
     contracts.ref("identifier", value["execution_id"])
     contracts.ref("sha256Ref", value["request_ref"])
     contracts.ref("sha256Ref", value["plan_ref"])
-    require_string(
-        value["grant_ref"], re.compile(r"grant:[a-zA-Z0-9._:-]+"), "grant_ref", max_length=160
+    _pr.validate_safe_uri_segments(
+        require_string(value["grant_ref"], _pr.GRANT_REF_RE, "grant_ref", max_length=160)
     )
-    require_string(
-        value["intent_ref"], re.compile(r"intent:[a-zA-Z0-9._:-]+"), "intent_ref", max_length=160
+    _pr.validate_safe_uri_segments(
+        require_string(value["intent_ref"], _pr.INTENT_REF_RE, "intent_ref", max_length=160)
     )
-    actor_re = re.compile(r"(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+")
-    require_string(value["subject"], actor_re, "subject", max_length=160)
+    _pr.validate_safe_uri_segments(
+        require_string(value["subject"], _pr.SUBJECT_ACTOR_RE, "subject", max_length=160)
+    )
     require_datetime(value["lease_expires_at"], "execution lease")
     _pr.bounded_int(
         value["lease_revision"], 1, 2_147_483_647, "execution lease revision is invalid"
     )
-    idem_re = re.compile(r"[A-Za-z0-9._:-]{8,160}")
-    require_string(value["idempotency_key"], idem_re, "idempotency_key")
+    require_string(value["idempotency_key"], _pr.IDEMPOTENCY_KEY_RE, "idempotency_key")
 
 
 def validate_process_step(contracts: Contracts, value: Any) -> None:
@@ -334,11 +347,8 @@ def validate_process(contracts: Contracts, value: Any) -> dict[str, Any]:
     contracts.ref("schemaRef", value["output_schema_ref"])
     if not isinstance(value["title"], str) or not 1 <= len(value["title"]) <= 160:
         raise ContractError("process title is invalid")
-    require_string(
-        value["owner"],
-        re.compile(r"(?:human|agent|service):[a-zA-Z0-9._:-]+"),
-        "owner",
-        max_length=160,
+    _pr.validate_safe_uri_segments(
+        require_string(value["owner"], _pr.OWNER_ACTOR_RE, "owner", max_length=160)
     )
     policies = _pr.unique_list(
         value["policy_refs"], "process policies are invalid", minimum=1, maximum=16

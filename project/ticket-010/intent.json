@@ -1,0 +1,100 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-010",
+  "summary": "Harden POA regular-file inode checks, colon URI segments, regex anchors, and twin-plan contracts",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-009/README.md",
+    "project/ticket-010/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/conformance.py",
+    "standard/poa_plan_receipt.py",
+    "standard/poa_primitives.py",
+    "standard/test_poa_hardening.py",
+    "standard/ticket_queue.py",
+    "standard/ticket_queue_admission.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "fb8e939a6441abf47714b635d14dea073cae4d5a",
+    "targetBranch": "main",
+    "outcome": "Enforce lstat+fstat regular-file inode stability and relative ancestor symlink checks in read_regular_utf8, reject .. traversal and forbidden delimiters across colon-delimited POA references, anchor all regexes with \\A...\\Z, validate DigitalTwinPlan and internal process steps fail-closed, and reconcile merged ticket-009.",
+    "nonGoals": [
+      "Do not alter frozen POA JSON schemas, protobuf definitions, or GBNF grammars",
+      "No runtime dependency additions"
+    ],
+    "complexity": "M",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 9,
+      "maxAffectedComponents": 3,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Enforce pre-open lstat + post-open fstat inode identity and relative parent symlink guards in standard/poa_primitives.py, extend validate_safe_uri_segments to colon-delimited schemes, centralize \\A...\\Z compiled patterns, and add closed DigitalTwinPlan and internal process step DAG validation in standard/ticket_queue_admission.py.",
+      "components": [
+        {
+          "name": "poa-conformance",
+          "paths": [
+            "standard/conformance.py",
+            "standard/poa_plan_receipt.py",
+            "standard/poa_primitives.py",
+            "standard/test_poa_hardening.py",
+            "standard/ticket_queue.py",
+            "standard/ticket_queue_admission.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "ruff check --no-cache standard",
+          "python3 standard/conformance.py --all"
+        ],
+        "evidence": "project/ticket-010/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "python3 standard/ticket_queue.py",
+          "pytest -q"
+        ],
+        "evidence": "project/ticket-010/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-010/README.md"
+      }
+    ]
+  }
+}

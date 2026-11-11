@@ -24,12 +24,13 @@ SEED_PATH = ROOT / "seed" / "p0p1-tickets.v1.json"
 PROTO_PATH = ROOT / "wellmanifest" / "poa" / "v1" / "ticket_queue.proto"
 ADMISSION_PROTO_PATH = ROOT / "wellmanifest" / "poa" / "v2" / "ticket_queue.proto"
 
-IDENTIFIER = re.compile(r"^[a-z][a-z0-9._:-]*$")
-ACTOR = re.compile(r"^(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+$")
-PROCESS_REF = re.compile(r"^poa://[a-z0-9.-]+/process/[a-z][a-z0-9._:-]*/v[1-9][0-9]*$")
-PROCESS_URI = re.compile(r"^[a-z][a-z0-9+.-]*://[A-Za-z0-9._~:/?#@!$&'()+,;=%-]+$")
-AUTHORITY_REF = re.compile(r"^(?:|grant://[A-Za-z0-9._~:/?#@!$&'()+,;=%-]+)$")
-SHA256 = re.compile(r"^[0-9a-f]{64}$")
+IDENTIFIER = re.compile(r"\A[a-z][a-z0-9._:-]*\Z")
+ACTOR = re.compile(r"\A(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+\Z")
+PROCESS_REF = re.compile(r"\Apoa://[a-z0-9.-]+/process/[a-z][a-z0-9._:-]*/v[1-9][0-9]*\Z")
+PROCESS_URI = re.compile(r"\A[a-z][a-z0-9+.-]*://[A-Za-z0-9._~:/?#@!$&'()+,;=%-]+\Z")
+AUTHORITY_REF = re.compile(r"\A(?:|grant://[A-Za-z0-9._~:/?#@!$&'()+,;=%-]+)\Z")
+SHA256 = re.compile(r"\A[0-9a-f]{64}\Z")
+TIMEZONE_RE = re.compile(r"\A[A-Za-z0-9_+./-]{1,64}\Z")
 
 REQUIRED_PROTO = (
     "message Ticket",
@@ -93,9 +94,10 @@ def require_id(value: Any, label: str) -> str:
 
 
 def require_actor(value: Any, label: str) -> str:
+    err = QueueContractError("POA-ID-001", f"{label} is not a closed actor")
     if not isinstance(value, str) or len(value) > 160 or ACTOR.fullmatch(value) is None:
-        raise QueueContractError("POA-ID-001", f"{label} is not a closed actor")
-    return value
+        raise err
+    return _pr.validate_safe_uri_segments(value, error=err)
 
 
 def require_authority_ref(value: Any, message: str = "authority reference is invalid") -> str:
@@ -290,6 +292,64 @@ def validate_queue_plan(plan: dict[str, Any]) -> None:
         or queue_plan_hash(plan) != plan_hash
     ):
         raise QueueContractError("POA-PLAN-002", "plan hash does not bind the queue plan")
+
+
+def validate_internal_process_steps(steps: Any) -> list[dict[str, Any]]:
+    if not isinstance(steps, list) or not 1 <= len(steps) <= 64:
+        raise QueueContractError("POA-DAG-001", "internal process steps must be a non-empty list")
+    step_ids: list[str] = []
+    edges: dict[str, list[str]] = {}
+    for step in steps:
+        if not isinstance(step, dict):
+            raise QueueContractError("POA-DOC-001", "internal process step must be an object")
+        step_id = require_id(step.get("id"), "step id")
+        deps = step.get("depends_on", [])
+        if not isinstance(deps, list) or len(deps) > 32:
+            raise QueueContractError("POA-DAG-001", "internal process dependencies are invalid")
+        step_ids.append(step_id)
+        edges[step_id] = [require_id(dep, "depends_on") for dep in deps]
+    try:
+        _pr.assert_dag(
+            step_ids,
+            edges,
+            duplicate_msg="internal process step ids are not unique",
+            unresolved_msg="internal process dependency is unresolved or self-referential",
+            cycle_msg="internal process dependency graph contains a cycle",
+        )
+    except _pr.ContractError as exc:
+        raise QueueContractError("POA-DAG-001", str(exc)) from exc
+    return steps
+
+
+def validate_twin_plan(plan: Any) -> dict[str, Any]:
+    _pr.reject_secret_material(
+        plan, error=QueueContractError("POA-DOC-001", "credential material is forbidden")
+    )
+    exact(plan, {"schema", "plan_id", "ticket_id", "actor", "steps", "timezone", "not_before"})
+    if plan["schema"] != "poa.digital-twin-plan/v1":
+        raise QueueContractError("POA-TWIN-001", "digital twin plan schema is invalid")
+    require_id(plan["plan_id"], "plan_id")
+    require_id(plan["ticket_id"], "ticket_id")
+    require_actor(plan["actor"], "actor")
+    tz = plan["timezone"]
+    if (
+        not isinstance(tz, str)
+        or TIMEZONE_RE.fullmatch(tz) is None
+        or any(seg in {"", ".", ".."} for seg in tz.split("/"))
+    ):
+        raise QueueContractError("POA-TWIN-001", "digital twin timezone is invalid")
+    parse_time(plan["not_before"])
+    steps = validate_internal_process_steps(plan["steps"])
+    for step in steps:
+        exact(step, {"id", "capability_ref", "kind", "depends_on", "eta"})
+        require_process_uri(step["capability_ref"], "POA-URI-001", "twin step URI is invalid")
+        _pr.str_choice(
+            step["kind"],
+            {"query", "command"},
+            QueueContractError("POA-DAG-001", "twin step kind is invalid"),
+        )
+        parse_time(step["eta"])
+    return plan
 
 
 def load_seed() -> dict[str, Any]:

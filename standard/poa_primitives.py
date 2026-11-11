@@ -18,9 +18,16 @@ MAX_FILE_BYTES = 4 * 1024 * 1024
 MAX_JSON_DEPTH = 64
 
 RFC3339_RE = re.compile(
-    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
-    r"(?:\.[0-9]{1,6})?(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+    r"\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]{1,6})?(?:Z|[+-][0-9]{2}:[0-9]{2})\Z"
 )
+GRANT_REF_RE = re.compile(r"\Agrant:[a-zA-Z0-9._:-]+\Z")
+INTENT_REF_RE = re.compile(r"\Aintent:[a-zA-Z0-9._:-]+\Z")
+SUBJECT_ACTOR_RE = re.compile(r"\A(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+\Z")
+OWNER_ACTOR_RE = re.compile(r"\A(?:human|agent|service):[a-zA-Z0-9._:-]+\Z")
+IDEMPOTENCY_KEY_RE = re.compile(r"\A[A-Za-z0-9._:-]{8,160}\Z")
+SCOPE_TOKEN_RE = re.compile(r"\A[a-z][a-z0-9._:-]+\Z")
+ERROR_CODE_RE = re.compile(r"\A[A-Z][A-Z0-9_-]{2,63}\Z")
 SECRET_MATERIAL = re.compile(
     r"(?:-----BEGIN [A-Z ]*PRIVATE KEY-----|\bgh[pousr]_[A-Za-z0-9]{20,}|"
     r"\bgithub_pat_[A-Za-z0-9_]{20,}|\bsk-[A-Za-z0-9_-]{20,}|"
@@ -42,15 +49,43 @@ class QueueContractError(ValueError):
         self.code = code
 
 
+def _reject_relative_ancestor_symlinks(path: Path, error: Exception | None) -> None:
+    if path.is_absolute():
+        return
+    cur = Path()
+    for part in path.parts[:-1]:
+        if part in ("", "."):
+            continue
+        cur = cur / part
+        try:
+            st = os.lstat(cur)
+        except OSError as exc:
+            raise (error if error is not None else ContractError("file cannot be opened")) from exc
+        if stat.S_ISLNK(st.st_mode):
+            raise (
+                error
+                if error is not None
+                else ContractError("symlink parent directory is forbidden")
+            )
+
+
 def read_regular_utf8(
     path: Path,
     *,
     max_bytes: int = MAX_FILE_BYTES,
     error: Exception | None = None,
 ) -> str:
-    """Read a bounded regular UTF-8 file without following leaf symlinks."""
+    """Read a bounded regular UTF-8 file without following symlinks or inode swaps."""
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 1:
+        raise error if error is not None else ContractError("invalid maximum byte size")
+    if not isinstance(path, Path):
+        path = Path(path)
+    _reject_relative_ancestor_symlinks(path, error)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
+        lst = os.lstat(path)
+        if not stat.S_ISREG(lst.st_mode):
+            raise error if error is not None else ContractError("path is not a regular file")
         fd = os.open(path, flags)
     except OSError as exc:
         raise (error if error is not None else ContractError("file cannot be opened")) from exc
@@ -60,6 +95,10 @@ def read_regular_utf8(
         st = os.fstat(fd)
         if not stat.S_ISREG(st.st_mode):
             raise error if error is not None else ContractError("path is not a regular file")
+        if (lst.st_dev, lst.st_ino) != (st.st_dev, st.st_ino):
+            raise (
+                error if error is not None else ContractError("file identity changed during open")
+            )
         if st.st_size > max_bytes:
             raise error if error is not None else ContractError("file exceeds maximum byte size")
         while True:
@@ -253,9 +292,11 @@ def str_choice(value: Any, allowed: set[str], error: Exception) -> str:
 
 
 def validate_safe_uri_segments(value: str, *, error: Exception | None = None) -> str:
+    if "\\" in value:
+        raise error if error is not None else ContractError("URI contains forbidden delimiters")
     if "://" in value:
         _, rest = value.split("://", 1)
-        if "?" in rest or "#" in rest or "\\" in rest:
+        if "?" in rest or "#" in rest:
             raise (
                 error if error is not None else ContractError("URI contains forbidden delimiters")
             )
@@ -263,6 +304,18 @@ def validate_safe_uri_segments(value: str, *, error: Exception | None = None) ->
         if not authority or authority in {".", ".."}:
             raise error if error is not None else ContractError("URI authority is invalid")
         if sep and any(seg in {"", ".", ".."} for seg in path.split("/")):
+            raise (
+                error
+                if error is not None
+                else ContractError("URI contains unsafe or empty path segments")
+            )
+    elif ":" in value:
+        scheme, rest = value.split(":", 1)
+        if not scheme or "?" in rest or "#" in rest:
+            raise (
+                error if error is not None else ContractError("URI contains forbidden delimiters")
+            )
+        if any(seg == ".." for seg in re.split(r"[/:]", rest)):
             raise (
                 error
                 if error is not None
