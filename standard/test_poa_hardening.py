@@ -258,6 +258,50 @@ class PoaHardeningTests(unittest.TestCase):
                 },
             )
 
+    def test_huge_int_lone_surrogates_abs_symlink_ancestors_key_scan_and_uri_segments(self) -> None:
+        for bad_json in (
+            '{"n": ' + ("9" * 400) + "}",
+            '{"n": -' + ("9" * 400) + "}",
+            '{"n": ' + ("9" * 5000) + "}",
+            '{"s": "\\ud800"}',
+            '{"\\udfff": 1}',
+            '{"s": "\ud800"}',
+        ):
+            with self.subTest(sample=bad_json[:32]), self.assertRaises(pr.ContractError):
+                pr.strict_loads(bad_json, parse_error=pr.ContractError("bad json"))
+
+        with self.assertRaises(pr.ContractError):
+            pr.canonical({"huge": 10**400})
+        with self.assertRaises(pr.ContractError):
+            pr.canonical({"bad": "sur\ud800"})
+        with self.assertRaises(pr.ContractError):
+            pr.digest_text("sur\ud800")
+
+        crafted_key = "gh" + "p_" + ("A" * 24)
+        with self.assertRaises(pr.ContractError):
+            pr.reject_secret_material({crafted_key: "clean"})
+
+        for bad_uri in (
+            "poa://subactor.test/foo:..:bar",
+            "poa://subactor.test/foo:.:bar",
+            "grant:",
+            "grant:.:bad",
+            "grant:foo::bar",
+        ):
+            with self.subTest(uri=bad_uri), self.assertRaises(pr.ContractError):
+                pr.validate_safe_uri_segments(bad_uri)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            real_dir = root / "real_poa"
+            real_dir.mkdir()
+            doc = real_dir / "doc.json"
+            doc.write_text('{"ok": true}\n', encoding="utf-8")
+            sym_dir = root / "sym_poa"
+            sym_dir.symlink_to(real_dir)
+            with self.assertRaises(pr.ContractError):
+                pr.read_regular_utf8(sym_dir / "doc.json")
+
 
 if __name__ == "__main__":
     unittest.main()
