@@ -1,0 +1,81 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-008",
+  "summary": "add pytest conformance suite for POA v1 and v2",
+  "workstream": "application",
+  "classification": {
+    "kind": "SERVICE",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-007/README.md",
+    "project/ticket-008/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "tests/**"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "4ef6b76dd9a1872095f69f849504fc747100d98c",
+    "targetBranch": "main",
+    "outcome": "Add tests/test_poa_conformance.py exercising POA v1 and v2 conformance, strict JSON duplicate-key rejection, bool-for-int rejection, unhashable list handling, secret scanning, and CLI exit codes, and close merged ticket-007.",
+    "nonGoals": [
+      "Do not modify POA v1/v2 runtime validators or frozen schema/grammar digests"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 15,
+    "budgets": {
+      "maxImplementationFiles": 3,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Add a zero-dependency unittest/pytest test module under tests/ importing standard/ modules via pyproject.toml pythonpath.",
+      "components": [
+        {
+          "name": "poa-test-suite",
+          "paths": [
+            "tests/test_poa_conformance.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "ruff check tests",
+          "python3 -m pytest -q"
+        ],
+        "evidence": "project/ticket-008/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-008/README.md"
+      }
+    ]
+  }
+}
