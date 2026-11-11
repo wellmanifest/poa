@@ -2,7 +2,7 @@
 
 - **ID**: ticket-006
 - **Owner**: agent
-- **Status**: IN_PROGRESS
+- **Status**: DONE
 - **Workflow state**: PUBLICATION
 - **Created**: 2026-09-18
 

@@ -1,0 +1,106 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-007",
+  "summary": "Modularize POA conformance under 500 lines and harden strict JSON and type validation",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-005/README.md",
+    "project/ticket-006/README.md",
+    "project/ticket-007/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "pyproject.toml",
+    "standard/conformance.py",
+    "standard/poa_fixtures.py",
+    "standard/poa_plan_receipt.py",
+    "standard/poa_primitives.py",
+    "standard/ticket_queue.py",
+    "standard/ticket_queue_admission.py",
+    "standard/ticket_queue_conformance.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "64430e3b9df16d5d6da37d4f5d5017f8ec010549",
+    "targetBranch": "main",
+    "outcome": "Modularize all POA v1 and v2 conformance modules under 500 lines, fix boolean-for-integer, unhashable list, duplicate JSON key, non-RFC3339 timestamp, and string-coercion defects, add pyproject.toml, and close merged tickets 005 and 006.",
+    "nonGoals": [
+      "Do not modify frozen POA JSON schemas, protobuf definitions, or GBNF grammars",
+      "No runtime dependency additions"
+    ],
+    "complexity": "M",
+    "estimatedMinutes": 35,
+    "budgets": {
+      "maxImplementationFiles": 9,
+      "maxAffectedComponents": 3,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 1
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Extract shared strict JSON, type, RFC3339, DAG, and secret-scanning helpers into standard/poa_primitives.py, POA v1 fixtures into standard/poa_fixtures.py, and POA v2 queue admission/conformance into standard/ticket_queue_admission.py and standard/ticket_queue_conformance.py.",
+      "components": [
+        {
+          "name": "poa-conformance",
+          "paths": [
+            "pyproject.toml",
+            "standard/conformance.py",
+            "standard/poa_fixtures.py",
+            "standard/poa_plan_receipt.py",
+            "standard/poa_primitives.py",
+            "standard/ticket_queue.py",
+            "standard/ticket_queue_admission.py",
+            "standard/ticket_queue_conformance.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [
+        "standard/conformance.py: main() accepts optional argv list"
+      ],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "ruff check standard"
+        ],
+        "evidence": "project/ticket-007/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "python3 standard/conformance.py --all",
+          "python3 standard/ticket_queue.py"
+        ],
+        "evidence": "project/ticket-007/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-007/README.md"
+      }
+    ]
+  }
+}
