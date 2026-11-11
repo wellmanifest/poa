@@ -1,9 +1,9 @@
 # Ticket 005: Adopt wellmanifest/new-project 0.20.32 and resolve fleet drift
 
 - **ID**: ticket-005
-- **Owner**: unresolved:human
-- **Status**: IN_PROGRESS
-- **Workflow state**: EDIT
+- **Owner**: tom
+- **Status**: DONE
+- **Workflow state**: PUBLICATION
 - **Created**: 2026-09-19
 
 ## Goal and scope
