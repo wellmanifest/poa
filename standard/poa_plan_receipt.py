@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import copy
-import re
 from typing import Any
 
 try:
@@ -177,14 +176,15 @@ def validate_plan(contracts: Any, value: Any) -> None:
     if (
         not isinstance(subject, str)
         or len(subject) > 160
-        or re.fullmatch(r"(?:human|agent|service|mcp):[a-zA-Z0-9._:-]+", subject) is None
+        or _pr.SUBJECT_ACTOR_RE.fullmatch(subject) is None
     ):
         raise ContractError("plan authority subject is invalid")
+    _pr.validate_safe_uri_segments(subject)
     scopes = _pr.unique_list(
         authority["scopes"], "plan authority scopes are invalid", minimum=1, maximum=16
     )
     if any(
-        not isinstance(s, str) or len(s) > 96 or re.fullmatch(r"[a-z][a-z0-9._:-]+", s) is None
+        not isinstance(s, str) or len(s) > 96 or _pr.SCOPE_TOKEN_RE.fullmatch(s) is None
         for s in scopes
     ):
         raise ContractError("plan authority scopes are invalid")
@@ -260,9 +260,7 @@ def validate_plan(contracts: Any, value: Any) -> None:
         graph[step_id] = list(dependencies)
         _pr.bounded_int(step["timeout_seconds"], 1, 900, "planned timeout is invalid")
         _pr.bounded_int(step["max_attempts"], 1, 5, "planned attempt budget is invalid")
-        require_string(
-            step["idempotency_key"], re.compile(r"[A-Za-z0-9._:-]{8,160}"), "idempotency_key"
-        )
+        require_string(step["idempotency_key"], _pr.IDEMPOTENCY_KEY_RE, "idempotency_key")
         verifications = _pr.bounded_list(
             step["verification"], "planned verification is invalid", minimum=1, maximum=8
         )
@@ -310,16 +308,18 @@ def validate_receipt(contracts: Any, value: Any) -> None:
     if (
         not isinstance(grant_ref, str)
         or len(grant_ref) > 160
-        or re.fullmatch(r"grant:[a-zA-Z0-9._:-]+", grant_ref) is None
+        or _pr.GRANT_REF_RE.fullmatch(grant_ref) is None
     ):
         raise ContractError("receipt grant reference is invalid")
+    _pr.validate_safe_uri_segments(grant_ref)
     intent_ref = value["intent_ref"]
     if (
         not isinstance(intent_ref, str)
         or len(intent_ref) > 160
-        or re.fullmatch(r"intent:[a-zA-Z0-9._:-]+", intent_ref) is None
+        or _pr.INTENT_REF_RE.fullmatch(intent_ref) is None
     ):
         raise ContractError("receipt intent reference is invalid")
+    _pr.validate_safe_uri_segments(intent_ref)
     if require_datetime(value["completed_at"], "receipt completion") < require_datetime(
         value["started_at"], "receipt start"
     ):
@@ -371,7 +371,7 @@ def validate_receipt(contracts: Any, value: Any) -> None:
         for reference in verif_refs:
             contracts.ref("artifactRef", reference)
         if "error_code" in step:
-            require_string(step["error_code"], re.compile(r"[A-Z][A-Z0-9_-]{2,63}"), "error_code")
+            require_string(step["error_code"], _pr.ERROR_CODE_RE, "error_code")
 
 
 def validate_event(contracts: Any, value: Any) -> None:

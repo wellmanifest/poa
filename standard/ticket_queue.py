@@ -286,7 +286,11 @@ class TicketQueue:
         if not isinstance(ticket, dict) or not isinstance(process, dict):
             raise QueueContractError("POA-DOC-001", "ticket and process must be objects")
         ticket_id = _adm.require_id(ticket.get("ticket_id"), "ticket_id")
+        queue_name = ticket.get("queue")
+        if not isinstance(queue_name, str) or not queue_name:
+            raise QueueContractError("POA-QUEUE-001", "ticket requires a non-empty queue")
         _adm.require_process_ref(process.get("process_ref"))
+        _adm.validate_internal_process_steps(process.get("steps"))
         ticket = deepcopy(ticket)
         ticket["inspectable"] = True
         ticket["runtime_owner"] = "subactor"
@@ -312,9 +316,9 @@ class TicketQueue:
         return self._emit("TicketScheduled", ticket_id, "schedule-ticket")
 
     def plan_twin_work(self, plan: dict[str, Any]) -> dict[str, Any]:
-        ticket_id = _adm.require_id(plan["ticket_id"], "ticket_id")
-        if ticket_id not in self.tickets:
-            raise QueueContractError("POA-QUEUE-002", "twin plan needs a registered ticket")
+        _adm.validate_twin_plan(plan)
+        ticket_id = plan["ticket_id"]
+        self._ticket(ticket_id)
         self.processes[ticket_id] = {
             "ticket_id": ticket_id,
             "process_ref": self.tickets[ticket_id]["process_ref"],

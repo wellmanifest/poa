@@ -7,6 +7,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from standard import conformance as poa
 from standard import poa_primitives as pr
@@ -40,6 +41,40 @@ class PoaHardeningTests(unittest.TestCase):
                 link.symlink_to(target)
                 with self.assertRaises(pr.ContractError):
                     pr.read_regular_utf8(link)
+
+                real_dir = root / "real_dir"
+                real_dir.mkdir()
+                nested = real_dir / "nested.json"
+                nested.write_text('{"ok": true}', encoding="utf-8")
+                parent_link = root / "parent_link"
+                parent_link.symlink_to(real_dir)
+                prev_cwd = Path.cwd()
+                try:
+                    os.chdir(root)
+                    with self.assertRaises(pr.ContractError):
+                        pr.read_regular_utf8(Path("parent_link/nested.json"))
+                finally:
+                    os.chdir(prev_cwd)
+
+            real_lstat = os.lstat
+            real_fstat = os.fstat
+
+            def _swapped_fstat(fd: int) -> os.stat_result:
+                orig = real_fstat(fd)
+                vals = list(orig)
+                vals[1] = orig.st_ino + 1
+                return os.stat_result(vals)
+
+            with (
+                patch("standard.poa_primitives.os.lstat", side_effect=real_lstat),
+                patch("standard.poa_primitives.os.fstat", side_effect=_swapped_fstat),
+                self.assertRaises(pr.ContractError),
+            ):
+                pr.read_regular_utf8(target)
+
+            for bad_max in (0, -1, True, False):
+                with self.assertRaises(pr.ContractError):
+                    pr.read_regular_utf8(target, max_bytes=bad_max)  # type: ignore[arg-type]
 
     def test_strict_loads_and_canonical_reject_non_finite_and_excess_depth(self) -> None:
         for bad_raw in (
@@ -80,6 +115,27 @@ class PoaHardeningTests(unittest.TestCase):
         env["grant_ref"] = "grant:" + ("g" * 160)
         with self.assertRaises(poa.ContractError):
             poa.validate_execution_envelope(self.contracts, env)
+
+        for bad_colon_ref in (
+            "grant:../../escape",
+            "grant:foo/../bar",
+            "grant:example:001\n",
+        ):
+            bad_env = copy.deepcopy(poa.example_execution_envelope(self.plan))
+            bad_env["grant_ref"] = bad_colon_ref
+            with self.assertRaises(poa.ContractError):
+                poa.validate_execution_envelope(self.contracts, bad_env)
+
+        for bad_uri in (
+            "urn:example:../escape",
+            "intent:foo/../bar",
+            r"artifact://example.test/inputs\escape/r1",
+        ):
+            with self.assertRaises(pr.ContractError):
+                pr.validate_safe_uri_segments(bad_uri)
+
+        with self.assertRaises(pr.ContractError):
+            pr.require_datetime("2030-01-01T00:00:00Z\n", "ts")
 
     def test_unhashable_enums_and_keys_raise_contract_errors(self) -> None:
         with self.assertRaises(pr.ContractError):
@@ -164,6 +220,43 @@ class PoaHardeningTests(unittest.TestCase):
         self.assertEqual(cycle_err.exception.code, "POA-SCHED-002")
         self.assertNotIn("poa.tkt.mailpit", queue.schedules)
         self.assertEqual(len(queue.dependencies), before_deps)
+
+    def test_twin_plan_and_internal_process_validation(self) -> None:
+        queue = tq.TicketQueue(copy.deepcopy(self.seed))
+        base_twin = copy.deepcopy(self.seed["twin_plans"][0])
+
+        with self.assertRaises(tq.QueueContractError):
+            queue.plan_twin_work("not-a-dict")  # type: ignore[arg-type]
+
+        cyclic_twin = copy.deepcopy(base_twin)
+        cyclic_twin["steps"][0]["depends_on"] = ["request-otp"]
+        with self.assertRaises(tq.QueueContractError) as dag_err:
+            queue.plan_twin_work(cyclic_twin)
+        self.assertEqual(dag_err.exception.code, "POA-DAG-001")
+
+        bad_tz_twin = copy.deepcopy(base_twin)
+        bad_tz_twin["timezone"] = "Europe/../Warsaw"
+        with self.assertRaises(tq.QueueContractError) as tz_err:
+            queue.plan_twin_work(bad_tz_twin)
+        self.assertEqual(tz_err.exception.code, "POA-TWIN-001")
+
+        uninspectable = copy.deepcopy(self.seed)
+        for item in uninspectable["tickets"]:
+            if item["ticket_id"] == base_twin["ticket_id"]:
+                item["inspectable"] = False
+        locked_queue = tq.TicketQueue(uninspectable)
+        with self.assertRaises(tq.QueueContractError) as lock_err:
+            locked_queue.plan_twin_work(base_twin)
+        self.assertEqual(lock_err.exception.code, "POA-QUEUE-003")
+
+        with self.assertRaises(tq.QueueContractError):
+            queue.register_internal_process(
+                {"ticket_id": "poa.tkt.custom", "queue": "ops.internal"},
+                {
+                    "process_ref": "poa://subactor.test/process/custom/v1",
+                    "steps": [],
+                },
+            )
 
 
 if __name__ == "__main__":
