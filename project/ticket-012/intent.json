@@ -1,0 +1,96 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-012",
+  "summary": "Modularize poa_io and harden relative symlink traversal, JSON digit/surrogate bounds, and process title controls",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-011/README.md",
+    "project/ticket-012/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/conformance.py",
+    "standard/poa_io.py",
+    "standard/poa_primitives.py",
+    "standard/test_poa_hardening.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "b901bb497093bab6b1c76d1117dd767058ad3eae",
+    "targetBranch": "main",
+    "outcome": "Extract standard/poa_io.py and rebalance standard/poa_primitives.py and standard/conformance.py well below 500 lines, reject relative symlink-parent traversal via .., bound JSON integer digits before int() conversion, reject lone UTF-16 surrogates in reject_secret_material and ASCII C0/DEL control characters in validate_process title, expand standard/test_poa_hardening.py, and reconcile merged ticket-011.",
+    "nonGoals": [
+      "Do not alter frozen POA JSON schemas, protobuf definitions, or GBNF grammars",
+      "No runtime dependency additions"
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 25,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Split bounded regular-file UTF-8 I/O, finite JSON parsing, and secret scanning into standard/poa_io.py and move observation/binding/envelope validators into standard/poa_primitives.py with full __all__ re-exports so all standard/*.py files stay well under 500 lines.",
+      "components": [
+        {
+          "name": "poa-conformance",
+          "paths": [
+            "standard/conformance.py",
+            "standard/poa_io.py",
+            "standard/poa_primitives.py",
+            "standard/test_poa_hardening.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket branch commit or close the pull request before merge."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "ruff check --no-cache standard",
+          "python3 standard/conformance.py --all"
+        ],
+        "evidence": "project/ticket-012/README.md"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "python3 standard/ticket_queue.py",
+          "pytest -q"
+        ],
+        "evidence": "project/ticket-012/README.md"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh --base origin/main",
+          "wellman check"
+        ],
+        "evidence": "project/ticket-012/README.md"
+      }
+    ]
+  }
+}

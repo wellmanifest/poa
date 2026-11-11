@@ -27,11 +27,55 @@ example_observation, example_binding = _fx.example_observation, _fx.example_bind
 example_execution_envelope, example_event = _fx.example_execution_envelope, _fx.example_event
 example_process, example_request = _fx.example_process, _fx.example_request
 binding_registry, example_receipt = _fx.binding_registry, _fx.example_receipt
+validate_observation = _pr.validate_observation
+validate_binding = _pr.validate_binding
+validate_execution_envelope = _pr.validate_execution_envelope
 validate_verification = _plr.validate_verification
 validate_plan = _plr.validate_plan
 validate_receipt = _plr.validate_receipt
 validate_event = _plr.validate_event
 ALLOWED_EFFECTS = _plr.ALLOWED_EFFECTS
+
+__all__ = [
+    "ALLOWED_EFFECTS",
+    "CANONICAL_REQUESTS",
+    "ContractError",
+    "Contracts",
+    "GRAMMAR_DIGEST",
+    "GRAMMAR_PATH",
+    "ROOT",
+    "SCHEMA_DIGEST",
+    "SCHEMA_PATH",
+    "adversarial_checks",
+    "binding_registry",
+    "canonical",
+    "compile_example_plan",
+    "digest_text",
+    "exact_fields",
+    "example_binding",
+    "example_event",
+    "example_execution_envelope",
+    "example_observation",
+    "example_process",
+    "example_receipt",
+    "example_request",
+    "expect_rejected",
+    "main",
+    "request_canonical",
+    "require_datetime",
+    "require_string",
+    "run_all",
+    "validate_binding",
+    "validate_event",
+    "validate_execution_envelope",
+    "validate_observation",
+    "validate_plan",
+    "validate_process",
+    "validate_process_step",
+    "validate_receipt",
+    "validate_request",
+    "validate_verification",
+]
 
 ROOT = Path(__file__).resolve().parent
 SCHEMA_PATH = ROOT / "poa-process.schema.v1.json"
@@ -172,101 +216,6 @@ def validate_request(contracts: Contracts, value: Any) -> dict[str, Any]:
     return copy.deepcopy(value)
 
 
-def validate_observation(contracts: Contracts, value: Any) -> None:
-    _pr.reject_secret_material(value)
-    exact_fields(
-        value,
-        {
-            "schema",
-            "observation_id",
-            "target_ref",
-            "observed_at",
-            "valid_until",
-            "fact_schema_ref",
-            "facts_ref",
-            "facts_sha256",
-            "read_only",
-        },
-    )
-    if value["schema"] != "poa.observation/v1" or value["read_only"] is not True:
-        raise ContractError("observation contract is not read-only")
-    contracts.ref("identifier", value["observation_id"])
-    contracts.ref("targetRef", value["target_ref"])
-    contracts.ref("schemaRef", value["fact_schema_ref"])
-    contracts.ref("artifactRef", value["facts_ref"])
-    contracts.ref("sha256", value["facts_sha256"])
-    if require_datetime(value["valid_until"], "observation validity") <= require_datetime(
-        value["observed_at"], "observation time"
-    ):
-        raise ContractError("observation validity is not forward-bounded")
-
-
-def validate_binding(contracts: Contracts, value: Any) -> None:
-    _pr.reject_secret_material(value)
-    exact_fields(
-        value,
-        {
-            "schema",
-            "binding_id",
-            "capability_ref",
-            "process_uri",
-            "target_ref",
-            "adapter_ref",
-            "observation_ref",
-            "observation_sha256",
-            "priority",
-        },
-    )
-    if value["schema"] != "poa.binding/v1":
-        raise ContractError("binding schema is not supported")
-    contracts.ref("identifier", value["binding_id"])
-    contracts.ref("capabilityRef", value["capability_ref"])
-    contracts.ref("processUri", value["process_uri"])
-    contracts.ref("targetRef", value["target_ref"])
-    contracts.ref("adapterRef", value["adapter_ref"])
-    contracts.ref("artifactRef", value["observation_ref"])
-    contracts.ref("sha256", value["observation_sha256"])
-    _pr.bounded_int(value["priority"], -1000, 1000, "binding priority is invalid")
-
-
-def validate_execution_envelope(contracts: Contracts, value: Any) -> None:
-    _pr.reject_secret_material(value)
-    exact_fields(
-        value,
-        {
-            "schema",
-            "execution_id",
-            "request_ref",
-            "plan_ref",
-            "grant_ref",
-            "intent_ref",
-            "subject",
-            "lease_expires_at",
-            "lease_revision",
-            "idempotency_key",
-        },
-    )
-    if value["schema"] != "poa.execution-envelope/v1":
-        raise ContractError("execution envelope schema is not supported")
-    contracts.ref("identifier", value["execution_id"])
-    contracts.ref("sha256Ref", value["request_ref"])
-    contracts.ref("sha256Ref", value["plan_ref"])
-    _pr.validate_safe_uri_segments(
-        require_string(value["grant_ref"], _pr.GRANT_REF_RE, "grant_ref", max_length=160)
-    )
-    _pr.validate_safe_uri_segments(
-        require_string(value["intent_ref"], _pr.INTENT_REF_RE, "intent_ref", max_length=160)
-    )
-    _pr.validate_safe_uri_segments(
-        require_string(value["subject"], _pr.SUBJECT_ACTOR_RE, "subject", max_length=160)
-    )
-    require_datetime(value["lease_expires_at"], "execution lease")
-    _pr.bounded_int(
-        value["lease_revision"], 1, 2_147_483_647, "execution lease revision is invalid"
-    )
-    require_string(value["idempotency_key"], _pr.IDEMPOTENCY_KEY_RE, "idempotency_key")
-
-
 def validate_process_step(contracts: Contracts, value: Any) -> None:
     required = {
         "id",
@@ -345,8 +294,14 @@ def validate_process(contracts: Contracts, value: Any) -> dict[str, Any]:
     contracts.ref("processRef", value["process_ref"])
     contracts.ref("schemaRef", value["input_schema_ref"])
     contracts.ref("schemaRef", value["output_schema_ref"])
-    if not isinstance(value["title"], str) or not 1 <= len(value["title"]) <= 160:
+    title = value["title"]
+    if (
+        not isinstance(title, str)
+        or not 1 <= len(title) <= 160
+        or any(ord(ch) < 32 or ord(ch) == 127 for ch in title)
+    ):
         raise ContractError("process title is invalid")
+    _pr._check_utf8_str(title)
     _pr.validate_safe_uri_segments(
         require_string(value["owner"], _pr.OWNER_ACTOR_RE, "owner", max_length=160)
     )

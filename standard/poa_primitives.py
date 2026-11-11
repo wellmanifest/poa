@@ -3,19 +3,71 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-import math
-import os
 import re
-import stat
 from collections import deque
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
-MAX_FILE_BYTES = 4 * 1024 * 1024
-MAX_JSON_DEPTH = 64
+try:
+    from standard import poa_io as _io
+except ImportError:
+    import poa_io as _io  # type: ignore[no-redef]
+
+MAX_FILE_BYTES = _io.MAX_FILE_BYTES
+MAX_JSON_DEPTH = _io.MAX_JSON_DEPTH
+MAX_JSON_INT_DIGITS = _io.MAX_JSON_INT_DIGITS
+SECRET_MATERIAL = _io.SECRET_MATERIAL
+ContractError = _io.ContractError
+QueueContractError = _io.QueueContractError
+_check_utf8_str = _io._check_utf8_str
+_check_json_tree = _io._check_json_tree
+read_regular_utf8 = _io.read_regular_utf8
+strict_loads = _io.strict_loads
+load_strict_json = _io.load_strict_json
+canonical = _io.canonical
+digest_text = _io.digest_text
+reject_secret_material = _io.reject_secret_material
+
+__all__ = [
+    "ContractError",
+    "ERROR_CODE_RE",
+    "GRANT_REF_RE",
+    "IDEMPOTENCY_KEY_RE",
+    "INTENT_REF_RE",
+    "MAX_FILE_BYTES",
+    "MAX_JSON_DEPTH",
+    "MAX_JSON_INT_DIGITS",
+    "OWNER_ACTOR_RE",
+    "QueueContractError",
+    "RFC3339_RE",
+    "SCOPE_TOKEN_RE",
+    "SECRET_MATERIAL",
+    "SUBJECT_ACTOR_RE",
+    "_check_json_tree",
+    "_check_utf8_str",
+    "assert_closed_objects",
+    "assert_dag",
+    "bounded_int",
+    "bounded_list",
+    "canonical",
+    "digest_text",
+    "exact_fields",
+    "exact_queue",
+    "load_strict_json",
+    "parse_queue_time",
+    "read_regular_utf8",
+    "reject_secret_material",
+    "require_datetime",
+    "require_string",
+    "str_choice",
+    "strict_bool",
+    "strict_loads",
+    "unique_list",
+    "validate_binding",
+    "validate_execution_envelope",
+    "validate_observation",
+    "validate_safe_uri_segments",
+]
 
 RFC3339_RE = re.compile(
     r"\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
@@ -28,234 +80,6 @@ OWNER_ACTOR_RE = re.compile(r"\A(?:human|agent|service):[a-zA-Z0-9._:-]+\Z")
 IDEMPOTENCY_KEY_RE = re.compile(r"\A[A-Za-z0-9._:-]{8,160}\Z")
 SCOPE_TOKEN_RE = re.compile(r"\A[a-z][a-z0-9._:-]+\Z")
 ERROR_CODE_RE = re.compile(r"\A[A-Z][A-Z0-9_-]{2,63}\Z")
-SECRET_MATERIAL = re.compile(
-    r"(?:-----BEGIN [A-Z ]*PRIVATE KEY-----|\bgh[pousr]_[A-Za-z0-9]{20,}|"
-    r"\bgithub_pat_[A-Za-z0-9_]{20,}|\bsk-[A-Za-z0-9_-]{20,}|"
-    r"\bAKIA[0-9A-Z]{16}\b|"
-    r"(?:password|passwd|token|secret|api[-_]?key)\s*[:=]\s*[^\s,;]{4,})",
-    re.I,
-)
-
-
-class ContractError(ValueError):
-    """Safe conformance error that never includes an untrusted value."""
-
-
-class QueueContractError(ValueError):
-    """Fail-closed diagnostic that never echoes untrusted values."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(f"{code}: {message}")
-        self.code = code
-
-
-def _err(error: Exception | None, msg: str) -> Exception:
-    return error if error is not None else ContractError(msg)
-
-
-def _reject_ancestor_symlinks(path: Path, error: Exception | None) -> None:
-    if path.is_absolute():
-        if any(anc.is_symlink() for anc in path.parents if len(anc.parts) > 2):
-            raise _err(error, "symlink parent directory is forbidden")
-        return
-    cur = Path()
-    for part in path.parts[:-1]:
-        if part in ("", "."):
-            continue
-        cur = cur / part
-        try:
-            st = os.lstat(cur)
-        except OSError as exc:
-            raise _err(error, "file cannot be opened") from exc
-        if stat.S_ISLNK(st.st_mode):
-            raise _err(error, "symlink parent directory is forbidden")
-
-
-def read_regular_utf8(
-    path: Path,
-    *,
-    max_bytes: int = MAX_FILE_BYTES,
-    error: Exception | None = None,
-) -> str:
-    """Read a bounded regular UTF-8 file without following symlinks or inode swaps."""
-    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 1:
-        raise error if error is not None else ContractError("invalid maximum byte size")
-    if not isinstance(path, Path):
-        path = Path(path)
-    _reject_ancestor_symlinks(path, error)
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
-    try:
-        lst = os.lstat(path)
-        if not stat.S_ISREG(lst.st_mode):
-            raise error if error is not None else ContractError("path is not a regular file")
-        fd = os.open(path, flags)
-    except OSError as exc:
-        raise (error if error is not None else ContractError("file cannot be opened")) from exc
-    chunks: list[bytes] = []
-    total = 0
-    try:
-        st = os.fstat(fd)
-        if not stat.S_ISREG(st.st_mode):
-            raise error if error is not None else ContractError("path is not a regular file")
-        if (lst.st_dev, lst.st_ino) != (st.st_dev, st.st_ino):
-            raise (
-                error if error is not None else ContractError("file identity changed during open")
-            )
-        if st.st_size > max_bytes:
-            raise error if error is not None else ContractError("file exceeds maximum byte size")
-        while True:
-            chunk = os.read(fd, min(65536, max_bytes + 1 - total))
-            if not chunk:
-                break
-            total += len(chunk)
-            if total > max_bytes:
-                raise (
-                    error if error is not None else ContractError("file exceeds maximum byte size")
-                )
-            chunks.append(chunk)
-    except OSError as exc:
-        raise (error if error is not None else ContractError("file cannot be read")) from exc
-    finally:
-        os.close(fd)
-    try:
-        return b"".join(chunks).decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise (error if error is not None else ContractError("file is not valid UTF-8")) from exc
-
-
-def _check_utf8_str(value: str, error: Exception | None = None) -> None:
-    try:
-        value.encode("utf-8")
-    except UnicodeEncodeError as exc:
-        raise _err(error, "lone UTF-16 surrogate is forbidden") from exc
-
-
-def _check_json_tree(
-    value: Any,
-    *,
-    max_depth: int = MAX_JSON_DEPTH,
-    error: Exception | None = None,
-) -> None:
-    if type(max_depth) is not int or max_depth < 1:
-        raise _err(error, "invalid JSON nesting depth bound")
-    stack: list[tuple[Any, int]] = [(value, 0)]
-    while stack:
-        node, depth = stack.pop()
-        if depth > max_depth:
-            raise _err(error, "JSON exceeds maximum nesting depth")
-        if isinstance(node, str):
-            _check_utf8_str(node, error)
-        elif type(node) is int:
-            try:
-                ok = math.isfinite(float(node))
-            except OverflowError:
-                ok = False
-            if not ok:
-                raise _err(error, "JSON integer magnitude overflow")
-        elif isinstance(node, float) and not math.isfinite(node):
-            raise _err(error, "non-finite JSON number is forbidden")
-        elif isinstance(node, dict):
-            for key, child in node.items():
-                if not isinstance(key, str):
-                    raise _err(error, "JSON object keys must be strings")
-                _check_utf8_str(key, error)
-                stack.append((child, depth + 1))
-        elif isinstance(node, list):
-            for child in node:
-                stack.append((child, depth + 1))
-
-
-def strict_loads(
-    raw: str,
-    *,
-    duplicate_error: Exception | None = None,
-    parse_error: Exception | None = None,
-) -> Any:
-    """Parse bounded finite JSON while rejecting duplicate keys and deep nesting."""
-    if not isinstance(raw, str):
-        raise _err(parse_error, "JSON input must be a bounded string")
-    _check_utf8_str(raw, parse_error)
-    if len(raw.encode("utf-8")) > MAX_FILE_BYTES:
-        raise _err(parse_error, "JSON input must be a bounded string")
-
-    def _unique_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-        obj: dict[str, Any] = {}
-        for key, value in pairs:
-            if key in obj:
-                if duplicate_error is not None:
-                    raise duplicate_error
-                raise ContractError("duplicate JSON key")
-            obj[key] = value
-        return obj
-
-    def _reject_constant(_token: str) -> Any:
-        raise (
-            parse_error
-            if parse_error is not None
-            else ContractError("non-finite JSON constant is forbidden")
-        )
-
-    def _parse_finite_float(token: str) -> float:
-        parsed_val = float(token)
-        if not math.isfinite(parsed_val):
-            raise (
-                parse_error
-                if parse_error is not None
-                else ContractError("non-finite JSON number is forbidden")
-            )
-        return parsed_val
-
-    try:
-        parsed = json.loads(
-            raw,
-            object_pairs_hook=_unique_pairs,
-            parse_constant=_reject_constant,
-            parse_float=_parse_finite_float,
-        )
-    except RecursionError as exc:
-        raise (
-            parse_error
-            if parse_error is not None
-            else ContractError("JSON exceeds maximum nesting depth")
-        ) from exc
-    except (json.JSONDecodeError, ValueError) as exc:
-        if parse_error is not None:
-            raise parse_error from exc
-        if isinstance(exc, json.JSONDecodeError):
-            raise
-        raise ContractError("invalid JSON number or syntax") from exc
-    _check_json_tree(parsed, error=parse_error)
-    return parsed
-
-
-def load_strict_json(
-    path: Path,
-    *,
-    duplicate_error: Exception | None = None,
-    parse_error: Exception | None = None,
-) -> Any:
-    raw = read_regular_utf8(path, error=parse_error)
-    return strict_loads(raw, duplicate_error=duplicate_error, parse_error=parse_error)
-
-
-def canonical(value: Any) -> str:
-    """Serialize the POA numeric/string subset using the RFC 8785 profile."""
-    _check_json_tree(value)
-    try:
-        return json.dumps(
-            value,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        )
-    except (TypeError, ValueError, RecursionError) as exc:
-        raise ContractError("value is not RFC 8785 canonicalizable") from exc
-
-
-def digest_text(value: str) -> str:
-    _check_utf8_str(value)
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def exact_fields(value: Any, required: set[str], optional: set[str] | None = None) -> None:
@@ -422,34 +246,6 @@ def assert_closed_objects(value: Any, message: str = "an object schema is not cl
                 stack.append((child, depth + 1, False))
 
 
-def reject_secret_material(value: Any, *, error: Exception | None = None) -> None:
-    stack: list[tuple[Any, int]] = [(value, 0)]
-    while stack:
-        node, depth = stack.pop()
-        if depth > MAX_JSON_DEPTH:
-            raise (
-                error
-                if error is not None
-                else ContractError("document exceeds maximum nesting depth")
-            )
-        if isinstance(node, dict):
-            for key, child in node.items():
-                if isinstance(key, str) and SECRET_MATERIAL.search(key):
-                    raise (
-                        error
-                        if error is not None
-                        else ContractError("credential material is forbidden")
-                    )
-                stack.append((child, depth + 1))
-        elif isinstance(node, list):
-            for child in node:
-                stack.append((child, depth + 1))
-        elif isinstance(node, str) and SECRET_MATERIAL.search(node):
-            raise (
-                error if error is not None else ContractError("credential material is forbidden")
-            )
-
-
 def assert_dag(
     ids: list[str],
     edges: dict[str, list[str]],
@@ -485,3 +281,96 @@ def assert_dag(
                 ready.append(child)
     if visited != len(ids):
         raise ContractError(cycle_msg)
+
+
+def validate_observation(contracts: Any, value: Any) -> None:
+    reject_secret_material(value)
+    exact_fields(
+        value,
+        {
+            "schema",
+            "observation_id",
+            "target_ref",
+            "observed_at",
+            "valid_until",
+            "fact_schema_ref",
+            "facts_ref",
+            "facts_sha256",
+            "read_only",
+        },
+    )
+    if value["schema"] != "poa.observation/v1" or value["read_only"] is not True:
+        raise ContractError("observation contract is not read-only")
+    contracts.ref("identifier", value["observation_id"])
+    contracts.ref("targetRef", value["target_ref"])
+    contracts.ref("schemaRef", value["fact_schema_ref"])
+    contracts.ref("artifactRef", value["facts_ref"])
+    contracts.ref("sha256", value["facts_sha256"])
+    if require_datetime(value["valid_until"], "observation validity") <= require_datetime(
+        value["observed_at"], "observation time"
+    ):
+        raise ContractError("observation validity is not forward-bounded")
+
+
+def validate_binding(contracts: Any, value: Any) -> None:
+    reject_secret_material(value)
+    exact_fields(
+        value,
+        {
+            "schema",
+            "binding_id",
+            "capability_ref",
+            "process_uri",
+            "target_ref",
+            "adapter_ref",
+            "observation_ref",
+            "observation_sha256",
+            "priority",
+        },
+    )
+    if value["schema"] != "poa.binding/v1":
+        raise ContractError("binding schema is not supported")
+    contracts.ref("identifier", value["binding_id"])
+    contracts.ref("capabilityRef", value["capability_ref"])
+    contracts.ref("processUri", value["process_uri"])
+    contracts.ref("targetRef", value["target_ref"])
+    contracts.ref("adapterRef", value["adapter_ref"])
+    contracts.ref("artifactRef", value["observation_ref"])
+    contracts.ref("sha256", value["observation_sha256"])
+    bounded_int(value["priority"], -1000, 1000, "binding priority is invalid")
+
+
+def validate_execution_envelope(contracts: Any, value: Any) -> None:
+    reject_secret_material(value)
+    exact_fields(
+        value,
+        {
+            "schema",
+            "execution_id",
+            "request_ref",
+            "plan_ref",
+            "grant_ref",
+            "intent_ref",
+            "subject",
+            "lease_expires_at",
+            "lease_revision",
+            "idempotency_key",
+        },
+    )
+    if value["schema"] != "poa.execution-envelope/v1":
+        raise ContractError("execution envelope schema is not supported")
+    contracts.ref("identifier", value["execution_id"])
+    contracts.ref("sha256Ref", value["request_ref"])
+    contracts.ref("sha256Ref", value["plan_ref"])
+    validate_safe_uri_segments(
+        require_string(value["grant_ref"], GRANT_REF_RE, "grant_ref", max_length=160)
+    )
+    validate_safe_uri_segments(
+        require_string(value["intent_ref"], INTENT_REF_RE, "intent_ref", max_length=160)
+    )
+    validate_safe_uri_segments(
+        require_string(value["subject"], SUBJECT_ACTOR_RE, "subject", max_length=160)
+    )
+    require_datetime(value["lease_expires_at"], "execution lease")
+    bounded_int(value["lease_revision"], 1, 2_147_483_647, "execution lease revision is invalid")
+    require_string(value["idempotency_key"], IDEMPOTENCY_KEY_RE, "idempotency_key")
