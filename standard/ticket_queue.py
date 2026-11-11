@@ -14,9 +14,11 @@ from copy import deepcopy
 from typing import Any
 
 try:
+    from standard import poa_primitives as _pr
     from standard import ticket_queue_admission as _adm
     from standard import ticket_queue_conformance as _qc
 except ImportError:
+    import poa_primitives as _pr  # type: ignore[no-redef]
     import ticket_queue_admission as _adm  # type: ignore[no-redef]
     import ticket_queue_conformance as _qc  # type: ignore[no-redef]
 
@@ -88,7 +90,9 @@ class TicketQueue:
         self.events.append(event)
         return event
 
-    def _ticket(self, ticket_id: str) -> dict[str, Any]:
+    def _ticket(self, ticket_id: Any) -> dict[str, Any]:
+        if not isinstance(ticket_id, str):
+            raise QueueContractError("POA-ID-001", "ticket_id must be a string")
         ticket = self.tickets.get(ticket_id)
         if ticket is None:
             raise QueueContractError("POA-QUEUE-002", "ticket is not registered")
@@ -135,8 +139,11 @@ class TicketQueue:
             raise QueueContractError("POA-ADMISSION-001", "admission schema is invalid")
         for label in ("admission_id", "ticket_id", "reason_code"):
             _adm.require_id(admission[label], label)
-        if admission["decision"] not in {"accept", "reject"}:
-            raise QueueContractError("POA-ADMISSION-001", "admission decision is invalid")
+        decision = _pr.str_choice(
+            admission["decision"],
+            {"accept", "reject"},
+            QueueContractError("POA-ADMISSION-001", "admission decision is invalid"),
+        )
         if admission["independent"] is not True:
             raise QueueContractError("POA-ADMISSION-002", "admission is not independent")
         _adm.require_actor(admission["decided_by"], "admitter")
@@ -147,6 +154,7 @@ class TicketQueue:
         rev = admission["queue_revision"]
         if (
             isinstance(rev, bool)
+            or not isinstance(rev, int)
             or rev != plan["queue_revision"]
             or admission["plan_hash"] != plan["plan_hash"]
         ):
@@ -160,7 +168,7 @@ class TicketQueue:
         authority_ref = _adm.require_authority_ref(
             admission["authority_ref"], "admission authority is invalid"
         )
-        if admission["decision"] == "accept" and authority_ref != plan["authority_ref"]:
+        if decision == "accept" and authority_ref != plan["authority_ref"]:
             raise QueueContractError(
                 "POA-AUTH-004", "admission authority does not bind the exact plan"
             )
@@ -184,6 +192,7 @@ class TicketQueue:
         expected_rev = command["expected_queue_revision"]
         if (
             isinstance(expected_rev, bool)
+            or not isinstance(expected_rev, int)
             or expected_rev != current["queue_revision"]
             or replacement["ticket_id"] != ticket_id
             or replacement["queue_revision"] != current["queue_revision"] + 1
@@ -217,6 +226,7 @@ class TicketQueue:
             raise QueueContractError("POA-ADMISSION-003", "queue plan is not admitted")
         if (
             isinstance(queue_revision, bool)
+            or not isinstance(queue_revision, int)
             or queue_revision != plan["queue_revision"]
             or plan_hash != plan["plan_hash"]
         ):
@@ -257,9 +267,15 @@ class TicketQueue:
         ticket = self._ticket(_adm.require_id(ticket_id, "ticket_id"))
         if task["queue"] != ticket["queue"]:
             raise QueueContractError("POA-QUEUE-004", "task queue does not match ticket")
+        step_id = task["process_step_id"]
         step_ids = {step["id"] for step in self.processes[ticket_id]["steps"]}
-        if task["process_step_id"] not in step_ids:
+        if not isinstance(step_id, str) or step_id not in step_ids:
             raise QueueContractError("POA-QUEUE-005", "process step is not on the ticket")
+        _pr.str_choice(
+            task["status"],
+            {"queued", "started", "completed", "rejected"},
+            QueueContractError("POA-QUEUE-001", "task status is invalid"),
+        )
         _adm.require_actor(task["actor"], "actor")
         _adm.require_id(task["task_id"], "task_id")
         return self._emit("TaskQueued", ticket_id, task["task_id"])
@@ -267,10 +283,10 @@ class TicketQueue:
     def register_internal_process(
         self, ticket: dict[str, Any], process: dict[str, Any]
     ) -> dict[str, Any]:
-        ticket_id = _adm.require_id(ticket["ticket_id"], "ticket_id")
-        proc_ref = process.get("process_ref")
-        if not isinstance(proc_ref, str) or PROCESS_REF.fullmatch(proc_ref) is None:
-            raise QueueContractError("POA-DOC-001", "process_ref is invalid")
+        if not isinstance(ticket, dict) or not isinstance(process, dict):
+            raise QueueContractError("POA-DOC-001", "ticket and process must be objects")
+        ticket_id = _adm.require_id(ticket.get("ticket_id"), "ticket_id")
+        _adm.require_process_ref(process.get("process_ref"))
         ticket = deepcopy(ticket)
         ticket["inspectable"] = True
         ticket["runtime_owner"] = "subactor"
@@ -282,16 +298,16 @@ class TicketQueue:
     def schedule_ticket(
         self, scheduled: dict[str, Any], dependencies: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        ticket_id = _adm.require_id(scheduled["ticket_id"], "ticket_id")
+        if not isinstance(scheduled, dict):
+            raise QueueContractError("POA-DOC-001", "schedule must be an object")
+        ticket_id = _adm.require_id(scheduled.get("ticket_id"), "ticket_id")
         self._ticket(ticket_id)
-        _adm.parse_time(scheduled["not_before"])
+        _adm.parse_time(scheduled.get("not_before"))
+        validated_deps = _adm.validate_ticket_dependencies(
+            self.tickets, self.dependencies, dependencies, self._ticket
+        )
         self.schedules[ticket_id] = deepcopy(scheduled)
-        for dep in dependencies:
-            if dep["type"] != "happens-after":
-                raise QueueContractError("POA-SCHED-002", "dependency type is not happens-after")
-            self._ticket(dep["from_ticket_id"])
-            self._ticket(dep["to_ticket_id"])
-            self.dependencies.append(deepcopy(dep))
+        self.dependencies.extend(validated_deps)
         self.tickets[ticket_id]["status"] = "scheduled"
         return self._emit("TicketScheduled", ticket_id, "schedule-ticket")
 
@@ -374,10 +390,15 @@ class TicketQueue:
     def consume_operation(
         self, ticket_id: str, process_step_id: str, account_id: str
     ) -> dict[str, Any]:
-        if not ticket_id or not process_step_id:
+        if (
+            not isinstance(ticket_id, str)
+            or not isinstance(process_step_id, str)
+            or not ticket_id
+            or not process_step_id
+        ):
             raise QueueContractError("POA-QUOTA-003", "consume requires ticket and process step")
         self._ticket(ticket_id)
-        if account_id != self.quota["account_id"]:
+        if not isinstance(account_id, str) or account_id != self.quota["account_id"]:
             raise QueueContractError("POA-QUOTA-004", "account is not the registered quota holder")
         step_ids = {step["id"] for step in self.processes[ticket_id]["steps"]}
         if process_step_id not in step_ids:
@@ -390,10 +411,9 @@ class TicketQueue:
 
     def allocate_twin_node(self, ticket_id: str, account_id: str, node_ref: str) -> dict[str, Any]:
         self._ticket(ticket_id)
-        if account_id != self.quota["account_id"]:
+        if not isinstance(account_id, str) or account_id != self.quota["account_id"]:
             raise QueueContractError("POA-QUOTA-004", "account is not the registered quota holder")
-        if not isinstance(node_ref, str) or not IDENTIFIER.fullmatch(node_ref):
-            raise QueueContractError("POA-ID-001", "node_ref is not a closed identifier")
+        _adm.require_id(node_ref, "node_ref")
         if self.quota["twin_clones_in_use"] >= self.quota["twin_nodes_allowed"]:
             return self._emit("TwinNodeQuotaExhausted", ticket_id, node_ref)
         self.quota["twin_clones_in_use"] += 1

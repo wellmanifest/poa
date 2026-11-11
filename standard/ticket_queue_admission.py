@@ -87,27 +87,92 @@ EVENT_TYPES = {
 
 
 def require_id(value: Any, label: str) -> str:
-    if not isinstance(value, str) or IDENTIFIER.fullmatch(value) is None:
+    if not isinstance(value, str) or len(value) > 96 or IDENTIFIER.fullmatch(value) is None:
         raise QueueContractError("POA-ID-001", f"{label} is not a closed identifier")
     return value
 
 
 def require_actor(value: Any, label: str) -> str:
-    if not isinstance(value, str) or ACTOR.fullmatch(value) is None:
+    if not isinstance(value, str) or len(value) > 160 or ACTOR.fullmatch(value) is None:
         raise QueueContractError("POA-ID-001", f"{label} is not a closed actor")
     return value
 
 
 def require_authority_ref(value: Any, message: str = "authority reference is invalid") -> str:
-    if not isinstance(value, str) or AUTHORITY_REF.fullmatch(value) is None:
-        raise QueueContractError("POA-AUTH-004", message)
-    return value
+    err = QueueContractError("POA-AUTH-004", message)
+    if not isinstance(value, str) or len(value) > 320 or AUTHORITY_REF.fullmatch(value) is None:
+        raise err
+    return _pr.validate_safe_uri_segments(value, error=err) if value else value
+
+
+def require_process_uri(value: Any, code: str, message: str) -> str:
+    err = QueueContractError(code, message)
+    if (
+        not isinstance(value, str)
+        or not 8 <= len(value) <= 320
+        or PROCESS_URI.fullmatch(value) is None
+    ):
+        raise err
+    return _pr.validate_safe_uri_segments(value, error=err)
+
+
+def require_process_ref(value: Any) -> str:
+    err = QueueContractError("POA-DOC-001", "process_ref is invalid")
+    if not isinstance(value, str) or len(value) > 240 or PROCESS_REF.fullmatch(value) is None:
+        raise err
+    return _pr.validate_safe_uri_segments(value, error=err)
+
+
+def validate_ticket_dependencies(
+    tickets: dict[str, dict[str, Any]],
+    existing_deps: list[dict[str, Any]],
+    new_deps: Any,
+    check_ticket: Any,
+) -> list[dict[str, Any]]:
+    if not isinstance(new_deps, list):
+        raise QueueContractError("POA-DOC-001", "dependencies must be a list")
+    validated: list[dict[str, Any]] = []
+    for dep in new_deps:
+        exact(dep, {"from_ticket_id", "to_ticket_id", "type"}, {"schema"})
+        if (
+            dep.get("schema", "poa.ticket-dependency/v1") != "poa.ticket-dependency/v1"
+            or dep["type"] != "happens-after"
+        ):
+            raise QueueContractError("POA-SCHED-002", "dependency type is not happens-after")
+        from_id = require_id(dep["from_ticket_id"], "from_ticket_id")
+        to_id = require_id(dep["to_ticket_id"], "to_ticket_id")
+        check_ticket(from_id)
+        check_ticket(to_id)
+        if from_id == to_id:
+            raise QueueContractError("POA-SCHED-002", "ticket cannot depend on itself")
+        validated.append(dict(dep))
+    edges: dict[str, list[str]] = {tid: [] for tid in tickets}
+    for dep in [*existing_deps, *validated]:
+        from_id, to_id = dep["from_ticket_id"], dep["to_ticket_id"]
+        if from_id not in edges[to_id]:
+            edges[to_id].append(from_id)
+    try:
+        _pr.assert_dag(
+            list(tickets),
+            edges,
+            duplicate_msg="ticket ids are not unique",
+            unresolved_msg="ticket dependency is unresolved or self-referential",
+            cycle_msg="ticket dependency graph contains a cycle",
+        )
+    except _pr.ContractError as exc:
+        raise QueueContractError("POA-SCHED-002", str(exc)) from exc
+    return validated
 
 
 def queue_plan_hash(plan: dict[str, Any]) -> str:
     """Hash the closed ASCII-only v2 plan domain with RFC 8785-equivalent bytes."""
+    if not isinstance(plan, dict):
+        raise QueueContractError("POA-DOC-001", "queue plan must be an object")
     body = {key: value for key, value in plan.items() if key != "plan_hash"}
-    return _pr.digest_text(_pr.canonical(body))
+    try:
+        return _pr.digest_text(_pr.canonical(body))
+    except _pr.ContractError as exc:
+        raise QueueContractError("POA-PLAN-002", "queue plan is not canonicalizable") from exc
 
 
 def validate_queue_plan(plan: dict[str, Any]) -> None:
@@ -136,7 +201,11 @@ def validate_queue_plan(plan: dict[str, Any]) -> None:
     require_actor(plan["proposed_by"], "proposer")
     parse_time(plan["created_at"])
     revision = plan["queue_revision"]
-    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+    if (
+        isinstance(revision, bool)
+        or not isinstance(revision, int)
+        or not 1 <= revision <= 2_147_483_647
+    ):
         raise QueueContractError("POA-REVISION-001", "queue revision is invalid")
     authority_ref = require_authority_ref(plan["authority_ref"])
     steps = plan["steps"]
@@ -161,35 +230,39 @@ def validate_queue_plan(plan: dict[str, Any]) -> None:
         if step_id in step_ids:
             raise QueueContractError("POA-DAG-001", "queue step ids are not unique")
         step_ids.add(step_id)
-        if (
-            not isinstance(step["capability_ref"], str)
-            or PROCESS_URI.fullmatch(step["capability_ref"]) is None
-            or not isinstance(step["process_uri"], str)
-            or PROCESS_URI.fullmatch(step["process_uri"]) is None
-        ):
-            raise QueueContractError("POA-URI-001", "queue step URI binding is invalid")
-        if step["kind"] not in {"query", "command"}:
-            raise QueueContractError("POA-DAG-001", "queue step kind is invalid")
+        require_process_uri(
+            step["capability_ref"], "POA-URI-001", "queue step URI binding is invalid"
+        )
+        require_process_uri(step["process_uri"], "POA-URI-001", "queue step URI binding is invalid")
+        _pr.str_choice(
+            step["kind"],
+            {"query", "command"},
+            QueueContractError("POA-DAG-001", "queue step kind is invalid"),
+        )
         dependencies = step["depends_on"]
         if (
             not isinstance(dependencies, list)
             or len(dependencies) > 16
-            or any(not isinstance(dep, str) for dep in dependencies)
+            or any(
+                not isinstance(dep, str) or len(dep) > 96 or IDENTIFIER.fullmatch(dep) is None
+                for dep in dependencies
+            )
         ):
             raise QueueContractError("POA-DAG-001", "queue dependencies are invalid")
-        rollback = step["rollback"]
+        rollback = _pr.str_choice(
+            step["rollback"],
+            {"compensating", "automatic", "none"},
+            QueueContractError("POA-ROLLBACK-001", "rollback mode is invalid"),
+        )
         rollback_uri = step["rollback_process_uri"]
         if not isinstance(rollback_uri, str):
             raise QueueContractError("POA-ROLLBACK-001", "rollback URI must be a string")
         if rollback == "compensating":
-            if PROCESS_URI.fullmatch(rollback_uri) is None:
-                raise QueueContractError("POA-ROLLBACK-001", "compensation URI is missing")
-        elif rollback in {"automatic", "none"}:
+            require_process_uri(rollback_uri, "POA-ROLLBACK-001", "compensation URI is missing")
+        else:
             if rollback_uri:
                 raise QueueContractError("POA-ROLLBACK-001", "rollback URI is not allowed")
             irreversible = irreversible or rollback == "none"
-        else:
-            raise QueueContractError("POA-ROLLBACK-001", "rollback mode is invalid")
     for step in steps:
         dependencies = step["depends_on"]
         if len(dependencies) != len(set(dependencies)) or any(
@@ -220,9 +293,10 @@ def validate_queue_plan(plan: dict[str, Any]) -> None:
 
 
 def load_seed() -> dict[str, Any]:
+    seed_err = QueueContractError("POA-SEED-001", "seed JSON is invalid")
     dup_err = QueueContractError("POA-SEED-001", "seed JSON contains duplicate keys")
-    seed = _pr.load_strict_json(SEED_PATH, duplicate_error=dup_err)
-    if seed.get("schema") != "poa.ticket-queue-seed/v1":
+    seed = _pr.load_strict_json(SEED_PATH, duplicate_error=dup_err, parse_error=seed_err)
+    if not isinstance(seed, dict) or seed.get("schema") != "poa.ticket-queue-seed/v1":
         raise QueueContractError("POA-SEED-001", "seed schema is invalid")
     ticket_ids = [item["ticket_id"] for item in seed["tickets"]]
     if len(ticket_ids) != len(set(ticket_ids)):
@@ -245,12 +319,17 @@ def load_seed() -> dict[str, Any]:
 
 
 def validate_proto() -> None:
-    text = PROTO_PATH.read_text("utf-8")
+    text = _pr.read_regular_utf8(
+        PROTO_PATH, error=QueueContractError("POA-PROTO-001", "protobuf contract is unreadable")
+    )
     if any(name not in text for name in REQUIRED_PROTO):
         raise QueueContractError("POA-PROTO-001", "protobuf contract is incomplete")
     if "This file is a closed document family, not" not in text:
         raise QueueContractError("POA-PROTO-001", "protobuf must declare it is not a daemon")
-    admission_text = ADMISSION_PROTO_PATH.read_text("utf-8")
+    admission_text = _pr.read_regular_utf8(
+        ADMISSION_PROTO_PATH,
+        error=QueueContractError("POA-PROTO-002", "admission protobuf is unreadable"),
+    )
     if any(name not in admission_text for name in REQUIRED_ADMISSION_PROTO) or (
         "RuntimeOwner is Subactor" not in admission_text
     ):
@@ -259,9 +338,16 @@ def validate_proto() -> None:
 
 def validate_schema() -> None:
     dup_err = QueueContractError("POA-DOC-001", "schema JSON contains duplicate keys")
-    schema = _pr.load_strict_json(SCHEMA_PATH, duplicate_error=dup_err)
-    if schema.get("$id") != "https://wellmanifest.dev/schemas/poa/ticket-queue.schema.v1.json":
+    parse_err = QueueContractError("POA-DOC-001", "schema JSON is invalid")
+    schema = _pr.load_strict_json(SCHEMA_PATH, duplicate_error=dup_err, parse_error=parse_err)
+    if not isinstance(schema, dict) or (
+        schema.get("$id") != "https://wellmanifest.dev/schemas/poa/ticket-queue.schema.v1.json"
+    ):
         raise QueueContractError("POA-DOC-001", "schema identity is wrong")
+    try:
+        _pr.assert_closed_objects(schema)
+    except _pr.ContractError as exc:
+        raise QueueContractError("POA-DOC-001", "ticket queue schema is not closed") from exc
     serialized = json.dumps(schema)
     if "POA-QUEUE" not in serialized and "ticket_id" not in serialized:
         raise QueueContractError("POA-DOC-001", "schema must require ticket_id")
@@ -279,11 +365,18 @@ def validate_schema() -> None:
         raise QueueContractError("POA-QUEUE-001", "task contract dropped ticket_id")
     if defs["eventTrigger"]["properties"]["ticket_required"]["const"] is not True:
         raise QueueContractError("POA-QUEUE-001", "triggers must require a ticket")
-    admission_schema = _pr.load_strict_json(ADMISSION_SCHEMA_PATH, duplicate_error=dup_err)
-    if admission_schema.get("$id") != (
+    adm_err = QueueContractError("POA-DOC-002", "admission schema JSON is invalid")
+    admission_schema = _pr.load_strict_json(
+        ADMISSION_SCHEMA_PATH, duplicate_error=dup_err, parse_error=adm_err
+    )
+    if not isinstance(admission_schema, dict) or admission_schema.get("$id") != (
         "https://wellmanifest.dev/schemas/poa/ticket-queue.schema.v2.json"
     ):
         raise QueueContractError("POA-DOC-002", "admission schema identity is wrong")
+    try:
+        _pr.assert_closed_objects(admission_schema)
+    except _pr.ContractError as exc:
+        raise QueueContractError("POA-DOC-002", "admission schema is not closed") from exc
     admission_defs = admission_schema.get("$defs") or {}
     required_defs = {
         "queuePlan",
