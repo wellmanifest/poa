@@ -1,0 +1,95 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-013",
+  "summary": "HEY-04: poa.operation/v1 shared operation contract for registries",
+  "workstream": "integration",
+  "classification": {
+    "kind": "FEATURE",
+    "priority": "P2",
+    "origin": "requested"
+  },
+  "allowedPaths": [
+    "project/ticket-013/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "standard/conformance.py",
+    "standard/operation_contract.py",
+    "standard/poa-operation.schema.v1.json",
+    "standard/test_operation_contract.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "b0432f3729e6da51cf0c7007970cb16bb971f937",
+    "targetBranch": "main",
+    "outcome": "POA publishes poa.operation/v1: one closed record (operation_id, URI, JSON Schema arguments, POA effect classes, risk, lifecycle, provenance with source digest) that action, procedure, process and generated-operation registries use to import and export each other's entries. A dependency-free validator adds the rules JSON Schema cannot express (secret scanning, destructive implies high risk, generated implies generator and code digest), and conformance --all runs 2 positive examples and 25 adversarial rejections.",
+    "nonGoals": [
+      "No change to poa.process/v1 or ticket-queue schemas.",
+      "The document grants no authority and admits no execution.",
+      "Registry adapters live in heyasa and autonom (HEY-04 follow-ups, AUT-004)."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 60,
+    "budgets": {
+      "maxImplementationFiles": 4,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "A separate closed schema next to poa-process reusing its identifier/effect/sha256 vocabulary; the validator reuses poa_primitives and is wired into conformance.py like ticket_queue.",
+      "components": [
+        {
+          "name": "poa-operation-contract",
+          "paths": [
+            "standard/poa-operation.schema.v1.json",
+            "standard/operation_contract.py",
+            "standard/test_operation_contract.py",
+            "standard/conformance.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [
+        "standard/poa-operation.schema.v1.json (poa.operation/v1)"
+      ],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the commit; no consumer depends on it until the adapters land."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "python3 standard/conformance.py --all"
+        ],
+        "evidence": "ok true; operation_contract adversarial_rejections 25"
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "python3 -m unittest standard.test_operation_contract standard.test_poa_hardening"
+        ],
+        "evidence": "15 tests OK, including jsonschema agreement"
+      },
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "./project/governance-check.sh"
+        ],
+        "evidence": "GOV-PASS"
+      }
+    ]
+  }
+}

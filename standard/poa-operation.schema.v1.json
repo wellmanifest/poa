@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wellmanifest.dev/schemas/poa/poa-operation.schema.v1.json",
+  "title": "POA operation contract v1",
+  "description": "One shared, closed description of an addressable operation so that registries with different data models (action, procedure, process and generated-operation registries) can import and export each other's entries. The document describes; it does not grant authority, admit execution or carry secrets.",
+  "$ref": "#/$defs/operation",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[a-z][a-z0-9._:-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "operationUri": {
+      "type": "string",
+      "maxLength": 320,
+      "pattern": "^[a-z][a-z0-9+.-]*://[A-Za-z0-9._:-]+(?:/[A-Za-z0-9._:-]+)*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "effect": {
+      "enum": [
+        "read_data",
+        "local_write",
+        "external_write",
+        "credential_use",
+        "quota_consumption",
+        "remote_session",
+        "destructive"
+      ]
+    },
+    "lifecycle": {
+      "enum": [
+        "candidate",
+        "admitted",
+        "quarantined",
+        "deprecated",
+        "retired"
+      ]
+    },
+    "origin": {
+      "enum": [
+        "declared",
+        "builtin",
+        "generated",
+        "imported"
+      ]
+    },
+    "risk": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "jsonValue": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 2048
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/jsonMap"
+        }
+      ]
+    },
+    "jsonMap": {
+      "type": "object",
+      "maxProperties": 64,
+      "patternProperties": {
+        "^[A-Za-z0-9_.:$-]{1,128}$": {
+          "$ref": "#/$defs/jsonValue"
+        }
+      },
+      "additionalProperties": false
+    },
+    "inputSchema": {
+      "description": "JSON Schema (2020-12 subset) of the operation arguments; the top level is always an object schema. Open argument objects are allowed and declared by omitting additionalProperties.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "maxProperties": 16,
+      "properties": {
+        "type": {
+          "const": "object"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "properties": {
+          "$ref": "#/$defs/jsonMap"
+        },
+        "required": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "registry",
+        "source_id",
+        "source_sha256",
+        "origin",
+        "recorded_at"
+      ],
+      "properties": {
+        "registry": {
+          "$ref": "#/$defs/identifier"
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[^\\u0000-\\u001f\\u007f\\s]+$"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "origin": {
+          "$ref": "#/$defs/origin"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        "code_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "generated_by": {
+          "$ref": "#/$defs/identifier"
+        }
+      },
+      "additionalProperties": false
+    },
+    "operation": {
+      "type": "object",
+      "required": [
+        "schema",
+        "operation_id",
+        "uri",
+        "version",
+        "summary",
+        "input_schema",
+        "effects",
+        "lifecycle",
+        "provenance"
+      ],
+      "properties": {
+        "schema": {
+          "const": "poa.operation/v1"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "uri": {
+          "$ref": "#/$defs/operationUri"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "summary": {
+          "$ref": "#/$defs/text"
+        },
+        "summary_i18n": {
+          "type": "object",
+          "maxProperties": 8,
+          "patternProperties": {
+            "^[a-z]{2}(?:-[A-Z]{2})?$": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "additionalProperties": false
+        },
+        "keywords": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          }
+        },
+        "input_schema": {
+          "$ref": "#/$defs/inputSchema"
+        },
+        "effects": {
+          "type": "array",
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/effect"
+          }
+        },
+        "risk": {
+          "$ref": "#/$defs/risk"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

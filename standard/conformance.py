@@ -385,6 +385,12 @@ def run_all() -> dict[str, Any]:
         from ticket_queue import run_ticket_queue_conformance  # type: ignore[no-redef]
 
     ticket_queue = run_ticket_queue_conformance()
+    try:
+        from standard.operation_contract import run_operation_conformance
+    except ImportError:
+        from operation_contract import run_operation_conformance  # type: ignore[no-redef]
+
+    operation_contract = run_operation_conformance()
     return {
         "schema": "poa.conformance-report/v1",
         "ok": True,
@@ -404,6 +410,7 @@ def run_all() -> dict[str, Any]:
             "secret_free_receipt": True,
             "adversarial_rejections": rejected,
             "ticket_queue": ticket_queue,
+            "operation_contract": operation_contract,
         },
         "examples": {
             "process_ref": process["process_ref"],
