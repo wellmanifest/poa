@@ -1,0 +1,79 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-015",
+  "summary": "Align declared version: pyproject.toml",
+  "workstream": "integration",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "regression"
+  },
+  "allowedPaths": [
+    "project/ticket-015/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "pyproject.toml"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "ab22df794494bd5b57a364d3865a1f3596f1dc3c",
+    "targetBranch": "main",
+    "outcome": "GOV-VERSION-001 no longer blocks the new-project 0.20.162 adoption: pyproject 0.1.0.dev0 \u2192 VERSION 0.1.0.",
+    "nonGoals": [
+      "No dependency, build-backend or packaging change beyond the version string.",
+      "No release or tag."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Change only the version declaration so all declarations agree with the authoritative version.",
+      "components": [
+        {
+          "name": "release-metadata",
+          "paths": [
+            "pyproject.toml"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert to accepted base ab22df794494bd5b57a364d3865a1f3596f1dc3c."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "wellman-governance check --root ."
+        ],
+        "evidence": "No GOV-VERSION-001."
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "bash project/governance-check.sh"
+        ],
+        "evidence": "The governance gate passes."
+      }
+    ]
+  }
+}

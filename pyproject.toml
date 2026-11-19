@@ -1,6 +1,6 @@
 [project]
 name = "wellmanifest-poa"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Wellmanifest Process-Oriented Architecture (POA) v1 and v2 conformance validators"
 requires-python = ">=3.11"
 dependencies = []
